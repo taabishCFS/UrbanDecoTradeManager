@@ -833,6 +833,7 @@ if (actionType === "deleteCustomer") {
                   lastName
                   email
                   phone
+                  tags
                 }
 
                 userErrors {
@@ -855,6 +856,9 @@ if (actionType === "deleteCustomer") {
                   application.email,
 
                 phone,
+                tags:[
+"TRADE_ACCOUNT"
+]
               },
             },
           }
