@@ -2,7 +2,7 @@
 
 client_id = "10248c928baaacdbbb252766549c5992"
 name = "Urban Deco Trade Manager"
-application_url = "https://example.com"
+application_url = "https://urbandecotrademanager.onrender.com"
 embedded = true
 
 
@@ -35,7 +35,7 @@ name = "Description"
 type = "multi_line_text_field"
 
 [webhooks]
-api_version = "2026-10"
+api_version = "2026-07"
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/app/uninstalled"
@@ -57,7 +57,9 @@ uri = "/webhooks/orders/cancelled"
   uri = "/webhooks/orders/updated"
   topics = ["orders/updated"]
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [
+  "https://urbandecotrademanager.onrender.com/auth/callback"
+]
 
 [app_proxy]
 url = "/app-proxy"
@@ -66,6 +68,5 @@ subpath = "trade"
 
 
 [build]
-include_config_on_deploy = true
 automatically_update_urls_on_dev = true
 
