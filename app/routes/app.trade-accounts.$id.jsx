@@ -19,12 +19,15 @@ import {
 ============================================================ */
 
 export async function loader({ request, params }) {
-  await authenticate.admin(request);
+  const { session } =
+    await authenticate.admin(request);
 
   console.log("=================================");
   console.log("TRADE ACCOUNT DETAIL ROUTE HIT");
   console.log("ID:", params.id);
+  console.log("SHOP:", session.shop);
   console.log("=================================");
+
 
   const account =
     await prisma.tradeAccount.findUnique({
@@ -55,6 +58,7 @@ export async function loader({ request, params }) {
       },
     });
 
+
   if (!account) {
     throw new Response(
       "Trade account not found",
@@ -64,7 +68,11 @@ export async function loader({ request, params }) {
     );
   }
 
+
   return {
+    shopDomain:
+      session.shop,
+
     account: {
       id:
         account.id,
@@ -84,6 +92,7 @@ export async function loader({ request, params }) {
       businessName:
         account.businessName,
 
+
       /* --------------------------------------------------------
          STANDARD PRICING
       -------------------------------------------------------- */
@@ -96,6 +105,7 @@ export async function loader({ request, params }) {
 
       pricingOption:
         account.pricingOption,
+
 
       /* --------------------------------------------------------
          ACCOUNT
@@ -113,12 +123,14 @@ export async function loader({ request, params }) {
       updatedAt:
         account.updatedAt,
 
+
       /* --------------------------------------------------------
          APPLICATION
       -------------------------------------------------------- */
 
       application:
         account.application,
+
 
       /* --------------------------------------------------------
          REFERRALS
@@ -140,6 +152,7 @@ export async function loader({ request, params }) {
               referral.createdAt,
           })
         ),
+
 
       /* --------------------------------------------------------
          COMMISSIONS
@@ -199,6 +212,7 @@ export async function loader({ request, params }) {
               commission.paidAt,
           })
         ),
+
 
       /* --------------------------------------------------------
          CLIENT SPECIAL OFFERS
@@ -277,6 +291,7 @@ export async function action({
 
   const intent =
     formData.get("intent");
+
 
   console.log("=================================");
   console.log("TRADE ACCOUNT ACTION");
@@ -428,7 +443,7 @@ export async function action({
     /*
      * REFERRAL
      *
-     * No trade discount.
+     * Customer pays normal retail price.
      * Designer receives referral commission.
      */
 
@@ -591,9 +606,6 @@ export async function action({
        * --------------------------------------------------------
        * SWITCHING AWAY FROM TRADE PRICE
        * --------------------------------------------------------
-       *
-       * If this account previously had a Shopify
-       * Trade Price automatic discount, remove it.
        */
 
       else {
@@ -1099,17 +1111,6 @@ export async function action({
                 expiresAt
                   ? expiresAt.toISOString()
                   : null,
-
-              /*
-               * CURRENTLY YOUR EXISTING
-               * CLIENT SPECIAL LOGIC.
-               *
-               * NOTE:
-               * This currently targets ALL customers.
-               *
-               * We will fix this separately when
-               * Client Special Price is tested.
-               */
 
               context: {
                 all: "ALL",
@@ -1626,7 +1627,10 @@ export async function action({
 
 export default function TradeAccountDetail() {
 
-  const { account } =
+  const {
+    account,
+    shopDomain,
+  } =
     useLoaderData();
 
 
@@ -1644,6 +1648,28 @@ export default function TradeAccountDetail() {
 
   const application =
     account.application;
+
+
+  /* ==========================================================
+     REFERRAL LINK
+     
+     IMPORTANT:
+     This is the PUBLIC referral URL that the designer
+     should actually receive.
+
+     Example:
+     https://urban-deco-dev.myshopify.com/apps/trade/ref/UD-R0ZPH9
+  ========================================================== */
+
+  const referralLink =
+    account.pricingOption ===
+      "REFERRAL" &&
+    account.referralCode &&
+    shopDomain
+      ? `https://${shopDomain}/apps/trade/ref/${encodeURIComponent(
+          account.referralCode
+        )}`
+      : null;
 
 
   return (
@@ -1714,6 +1740,105 @@ export default function TradeAccountDetail() {
         />
 
       </div>
+
+
+      {/* ======================================================
+          REFERRAL LINK
+          
+          ONLY VISIBLE WHEN PRICING MODEL = REFERRAL
+      ====================================================== */}
+
+      {account.pricingOption ===
+        "REFERRAL" &&
+        referralLink && (
+
+          <Section title="Referral Link">
+
+            <div style={referralContainerStyle}>
+
+              <div style={referralDescriptionStyle}>
+
+                <strong>
+                  Designer Referral Link
+                </strong>
+
+                <p style={referralTextStyle}>
+                  Share this link with the designer.
+                  Customers who purchase through this
+                  link will pay the normal retail price.
+                  The designer will earn their configured
+                  referral commission.
+                </p>
+
+              </div>
+
+
+              <div style={referralLinkRowStyle}>
+
+                <input
+                  type="text"
+                  value={referralLink}
+                  readOnly
+                  style={referralLinkInputStyle}
+                  onFocus={(event) =>
+                    event.target.select()
+                  }
+                />
+
+
+                <button
+                  type="button"
+                  style={copyReferralButtonStyle}
+                  onClick={async () => {
+
+                    try {
+
+                      await navigator.clipboard.writeText(
+                        referralLink
+                      );
+
+                    } catch (error) {
+
+                      console.error(
+                        "FAILED TO COPY REFERRAL LINK",
+                        error
+                      );
+
+                    }
+
+                  }}
+                >
+                  Copy Referral Link
+                </button>
+
+              </div>
+
+
+              <div style={referralCommissionNoticeStyle}>
+
+                <strong>
+                  Referral Commission:
+                </strong>
+
+                {" "}
+
+                {account.commissionPercent}%
+
+                {" — "}
+
+                The customer receives no referral
+                discount. The designer earns{" "}
+                {account.commissionPercent}%
+                commission on eligible referred
+                orders.
+
+              </div>
+
+            </div>
+
+          </Section>
+
+        )}
 
 
       {/* ======================================================
@@ -1871,6 +1996,7 @@ export default function TradeAccountDetail() {
 
             <div style={fieldHelpStyle}>
               Used only when Referral is active.
+              Customers pay the normal retail price.
             </div>
 
           </div>
@@ -3305,6 +3431,78 @@ const valueStyle = {
   fontSize: "15px",
   color: "#222",
   wordBreak: "break-word",
+};
+
+
+/* ============================================================
+   REFERRAL LINK STYLES
+============================================================ */
+
+const referralContainerStyle = {
+  padding: "20px",
+  border: "1px solid #e5e5e5",
+  borderRadius: "8px",
+  background: "#fafafa",
+};
+
+
+const referralDescriptionStyle = {
+  fontSize: "15px",
+  color: "#222",
+  lineHeight: "1.5",
+};
+
+
+const referralTextStyle = {
+  marginTop: "8px",
+  marginBottom: "18px",
+  color: "#666",
+  fontSize: "13px",
+  lineHeight: "1.6",
+};
+
+
+const referralLinkRowStyle = {
+  display: "flex",
+  gap: "10px",
+  alignItems: "stretch",
+  maxWidth: "900px",
+};
+
+
+const referralLinkInputStyle = {
+  flex: 1,
+  minWidth: 0,
+  padding: "11px 12px",
+  border: "1px solid #ccc",
+  borderRadius: "6px",
+  background: "#fff",
+  fontSize: "14px",
+  color: "#222",
+};
+
+
+const copyReferralButtonStyle = {
+  padding: "10px 16px",
+  border: "none",
+  borderRadius: "6px",
+  background: "#222",
+  color: "#fff",
+  cursor: "pointer",
+  fontSize: "14px",
+  fontWeight: "600",
+  whiteSpace: "nowrap",
+};
+
+
+const referralCommissionNoticeStyle = {
+  marginTop: "15px",
+  padding: "12px 14px",
+  background: "#f0f0f0",
+  borderRadius: "6px",
+  fontSize: "13px",
+  color: "#555",
+  lineHeight: "1.6",
 };
 
 

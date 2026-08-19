@@ -1,7 +1,6 @@
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 
-
 /* ============================================================
    SHOPIFY ORDER CREATE WEBHOOK
 ============================================================ */
@@ -17,7 +16,6 @@ export const action = async ({ request }) => {
 
     const order = payload;
 
-
     /* ==========================================================
        WEBHOOK INFORMATION
     ========================================================== */
@@ -28,7 +26,6 @@ export const action = async ({ request }) => {
     console.log("ORDER NUMBER:", order.order_number);
     console.log("CUSTOMER:", order.customer?.email);
 
-
     /* ==========================================================
        1. PREPARE ORDER VALUES
     ========================================================== */
@@ -36,12 +33,10 @@ export const action = async ({ request }) => {
     const shopifyOrderId =
       String(order.id);
 
-
     const orderNumber =
       order.order_number
         ? String(order.order_number)
         : null;
-
 
     /*
      * ----------------------------------------------------------
@@ -50,10 +45,10 @@ export const action = async ({ request }) => {
      *
      * This is the product subtotal AFTER discounts.
      *
-     * Example:
+     * Example CLIENT SPECIAL PRICE:
      *
-     * Product price: £100
-     * Client discount: 10%
+     * Original product value: £100
+     * Customer discount: 10%
      * Customer pays: £90
      *
      * orderTotal = £90
@@ -67,26 +62,19 @@ export const action = async ({ request }) => {
         0
       );
 
-
     /*
      * ----------------------------------------------------------
      * ORIGINAL PRODUCT VALUE
      * ----------------------------------------------------------
      *
-     * We calculate the original merchandise value from
-     * the line items BEFORE discounts.
+     * Used by CLIENT_SPECIAL_PRICE.
      *
      * Example:
      *
-     * Product price: £100
-     * Quantity: 1
+     * Product: £100
+     * Customer pays: £90
      *
      * originalOrderValue = £100
-     *
-     * IMPORTANT:
-     *
-     * Client Special Price commission must be calculated
-     * from this value.
      */
 
     const originalOrderValue =
@@ -117,7 +105,6 @@ export const action = async ({ request }) => {
           )
         : 0;
 
-
     console.log(
       "================================="
     );
@@ -137,24 +124,19 @@ export const action = async ({ request }) => {
       "================================="
     );
 
-
-    /*
-     * ============================================================
-     * 2. CUSTOMER INFORMATION
-     * ============================================================
-     */
+    /* ==========================================================
+       2. CUSTOMER INFORMATION
+       ========================================================== */
 
     const customerEmail =
       order.customer?.email
         ?.toString()
-        .trim();
-
+        .trim() || null;
 
     const shopifyCustomerId =
       order.customer?.id
         ? `gid://shopify/Customer/${order.customer.id}`
         : null;
-
 
     console.log(
       "================================="
@@ -173,85 +155,653 @@ export const action = async ({ request }) => {
       "================================="
     );
 
+    /* ==========================================================
+       3. READ ORDER NOTE ATTRIBUTES
+       ==========================================================
+       
+       Referral orders use:
+       
+       UD Referral ID
+       UD Referral Session
+       
+       Client Special Price orders use:
+       
+       Shopify discount code
+       
+       The customer purchasing a Client Special Price order
+       does NOT need to be the designer's Trade Account.
+    */
 
-    /*
-     * ============================================================
-     * 3. FIND TRADE ACCOUNT
-     * ============================================================
-     *
-     * First try Shopify Customer ID.
-     *
-     * If no account is found, fall back to email.
-     */
+    const noteAttributes =
+      Array.isArray(order.note_attributes)
+        ? order.note_attributes
+        : [];
+
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "ORDER NOTE ATTRIBUTES"
+    );
+
+    console.log(
+      noteAttributes
+    );
+
+    console.log(
+      "================================="
+    );
+
+    /* ==========================================================
+       4. FIND REFERRAL INFORMATION
+       ========================================================== */
+
+    const referralIdFromOrder =
+      noteAttributes.find(
+        (attribute) =>
+          attribute?.name ===
+          "UD Referral ID"
+      )?.value
+        ?.toString()
+        .trim() || null;
+
+    const referralSessionFromOrder =
+      noteAttributes.find(
+        (attribute) =>
+          attribute?.name ===
+          "UD Referral Session"
+      )?.value
+        ?.toString()
+        .trim() || null;
+
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "REFERRAL ATTRIBUTES"
+    );
+
+    console.log({
+      referralIdFromOrder,
+      referralSessionFromOrder,
+    });
+
+    console.log(
+      "================================="
+    );
+
+    /* ==========================================================
+       5. FIND REFERRAL
+       ========================================================== */
+
+    let referral = null;
+    let referralId = null;
+
+    if (referralIdFromOrder) {
+      referral =
+        await prisma.referral.findFirst({
+          where: {
+            id:
+              referralIdFromOrder,
+          },
+
+          include: {
+            tradeAccount: true,
+          },
+        });
+
+      if (referral) {
+        referralId =
+          referral.id;
+
+        console.log(
+          "================================="
+        );
+
+        console.log(
+          "REFERRAL FOUND FROM ORDER ATTRIBUTES"
+        );
+
+        console.log({
+          referralId:
+            referral.id,
+
+          referralCode:
+            referral.referralCode,
+
+          tradeAccountId:
+            referral.tradeAccountId,
+
+          landingSessionId:
+            referral.landingSessionId,
+
+          orderReferralSession:
+            referralSessionFromOrder,
+
+          referralTradeAccountPricingOption:
+            referral.tradeAccount?.pricingOption,
+
+          referralTradeAccountCommissionPercent:
+            Number(
+              referral.tradeAccount?.commissionPercent ?? 0
+            ),
+        });
+
+        console.log(
+          "================================="
+        );
+      } else {
+        console.log(
+          "REFERRAL ID FOUND IN ORDER BUT NO MATCHING REFERRAL RECORD"
+        );
+
+        console.log(
+          "REFERRAL ID:",
+          referralIdFromOrder
+        );
+      }
+    } else {
+      console.log(
+        "NO UD REFERRAL ID FOUND ON ORDER"
+      );
+    }
+
+    /* ==========================================================
+       6. READ DISCOUNT CODES
+       ==========================================================
+       
+       IMPORTANT:
+       
+       This happens BEFORE Trade Account lookup.
+       
+       Why?
+       
+       A Client Special Price customer is NOT necessarily
+       the designer's Shopify customer.
+       
+       Example:
+       
+       Designer:
+       Urban Deco
+       
+       Trade Account:
+       cmsx5hjo80001fercdrf9ipov
+       
+       Client Special Offer:
+       DESIGNER25
+       
+       Customer:
+       test@example.com
+       
+       The customer's email cannot identify Urban Deco.
+       
+       DESIGNER25 DOES identify the ClientSpecialOffer,
+       and the ClientSpecialOffer identifies Urban Deco.
+    */
+
+    const discountCodes =
+      Array.isArray(order.discount_codes)
+        ? order.discount_codes
+        : [];
+
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "DISCOUNT CODES"
+    );
+
+    console.log(
+      discountCodes
+    );
+
+    console.log(
+      "================================="
+    );
+
+    /* ==========================================================
+       7. FIND CLIENT SPECIAL OFFER FROM DISCOUNT CODE
+       ==========================================================
+       
+       IMPORTANT:
+       
+       We DO NOT require a Trade Account here.
+       
+       The discount code itself is used to locate the
+       ClientSpecialOffer.
+       
+       Then the ClientSpecialOffer gives us:
+       
+       clientSpecialOffer.tradeAccountId
+       
+       and:
+       
+       clientSpecialOffer.tradeAccount
+    */
+
+    let clientSpecialOffer = null;
+
+    for (
+      const discount of discountCodes
+    ) {
+      const code =
+        discount?.code
+          ?.toString()
+          .trim()
+          .toUpperCase();
+
+      if (!code) {
+        continue;
+      }
+
+      console.log(
+        "CHECKING CLIENT SPECIAL DISCOUNT CODE:",
+        code
+      );
+
+      const offer =
+        await prisma.clientSpecialOffer.findFirst({
+          where: {
+            discountCode: {
+              equals:
+                code,
+
+              mode:
+                "insensitive",
+            },
+
+            status:
+              "ACTIVE",
+          },
+
+          include: {
+            tradeAccount: true,
+          },
+        });
+
+      /*
+       * --------------------------------------------------------
+       * NO CLIENT SPECIAL OFFER FOR THIS CODE
+       * --------------------------------------------------------
+       */
+
+      if (!offer) {
+        console.log(
+          "NO CLIENT SPECIAL OFFER FOUND FOR CODE:",
+          code
+        );
+
+        continue;
+      }
+
+      /*
+       * --------------------------------------------------------
+       * EXPIRY CHECK
+       * --------------------------------------------------------
+       */
+
+      const now =
+        new Date();
+
+      if (
+        offer.expiresAt &&
+        new Date(
+          offer.expiresAt
+        ) < now
+      ) {
+        console.log(
+          "CLIENT SPECIAL OFFER IS EXPIRED"
+        );
+
+        console.log({
+          clientSpecialOfferId:
+            offer.id,
+
+          discountCode:
+            offer.discountCode,
+
+          expiresAt:
+            offer.expiresAt,
+        });
+
+        continue;
+      }
+
+      /*
+       * --------------------------------------------------------
+       * ACTIVE TRADE ACCOUNT CHECK
+       * --------------------------------------------------------
+       */
+
+      if (
+        !offer.tradeAccount ||
+        offer.tradeAccount.status !==
+          "ACTIVE"
+      ) {
+        console.log(
+          "CLIENT SPECIAL OFFER HAS NO ACTIVE TRADE ACCOUNT"
+        );
+
+        console.log({
+          clientSpecialOfferId:
+            offer.id,
+
+          tradeAccountId:
+            offer.tradeAccountId,
+
+          tradeAccountStatus:
+            offer.tradeAccount?.status ?? null,
+        });
+
+        continue;
+      }
+
+      /*
+       * --------------------------------------------------------
+       * CLIENT SPECIAL OFFER FOUND
+       * --------------------------------------------------------
+       */
+
+      clientSpecialOffer =
+        offer;
+
+      console.log(
+        "================================="
+      );
+
+      console.log(
+        "CLIENT SPECIAL OFFER FOUND"
+      );
+
+      console.log({
+        clientSpecialOfferId:
+          offer.id,
+
+        tradeAccountId:
+          offer.tradeAccountId,
+
+        tradeAccountBusinessName:
+          offer.tradeAccount.businessName,
+
+        discountCode:
+          offer.discountCode,
+
+        allocationPercent:
+          Number(
+            offer.allocationPercent
+          ),
+
+        clientDiscountPercent:
+          Number(
+            offer.clientDiscountPercent
+          ),
+
+        commissionPercent:
+          Number(
+            offer.commissionPercent
+          ),
+
+        status:
+          offer.status,
+
+        expiresAt:
+          offer.expiresAt,
+      });
+
+      console.log(
+        "================================="
+      );
+
+      /*
+       * We found the Client Special Offer.
+       *
+       * There is no reason to check any other discount code.
+       */
+
+      break;
+    }
+
+    /* ==========================================================
+       8. FIND TRADE ACCOUNT
+       ==========================================================
+       
+       PRIORITY:
+       
+       1. CLIENT SPECIAL OFFER
+          ↓
+          ClientSpecialOffer.tradeAccount
+       
+       2. REFERRAL
+          ↓
+          Referral.tradeAccount
+       
+       3. NORMAL TRADE ACCOUNT
+          ↓
+          Shopify Customer ID / Email
+       
+       This order is VERY IMPORTANT.
+    */
 
     let tradeAccount = null;
 
+    /* ==========================================================
+       8A. CLIENT SPECIAL PRICE TRADE ACCOUNT
+       ==========================================================
+       
+       This is the critical fix.
+       
+       The purchaser is the designer's CLIENT.
+       
+       Therefore:
+       
+       customerEmail != designerEmail
+       
+       Instead:
+       
+       discountCode
+          ↓
+       ClientSpecialOffer
+          ↓
+       TradeAccount
+    */
 
-    /* ----------------------------------------------------------
-       FIND BY SHOPIFY CUSTOMER ID
-    ---------------------------------------------------------- */
-
-    if (shopifyCustomerId) {
+    if (
+      clientSpecialOffer &&
+      clientSpecialOffer.tradeAccount
+    ) {
       tradeAccount =
-        await prisma.tradeAccount.findFirst({
-          where: {
-            shopifyCustomerId,
+        clientSpecialOffer.tradeAccount;
 
-            status: "ACTIVE",
-          },
-        });
+      console.log(
+        "================================="
+      );
 
+      console.log(
+        "TRADE ACCOUNT FOUND FROM CLIENT SPECIAL OFFER"
+      );
 
-      if (tradeAccount) {
-        console.log(
-          "TRADE ACCOUNT FOUND BY SHOPIFY CUSTOMER ID"
-        );
-      }
+      console.log({
+        tradeAccountId:
+          tradeAccount.id,
+
+        businessName:
+          tradeAccount.businessName,
+
+        email:
+          tradeAccount.email,
+
+        pricingOption:
+          tradeAccount.pricingOption,
+
+        commissionPercent:
+          Number(
+            tradeAccount.commissionPercent
+          ),
+
+        clientSpecialOfferId:
+          clientSpecialOffer.id,
+
+        discountCode:
+          clientSpecialOffer.discountCode,
+      });
+
+      console.log(
+        "================================="
+      );
     }
 
-
-    /* ----------------------------------------------------------
-       FALL BACK TO EMAIL
-    ---------------------------------------------------------- */
+    /* ==========================================================
+       8B. REFERRAL TRADE ACCOUNT
+       ========================================================== */
 
     if (
       !tradeAccount &&
-      customerEmail
+      referral &&
+      referral.tradeAccount
     ) {
       tradeAccount =
-        await prisma.tradeAccount.findFirst({
-          where: {
-            email: {
-              equals: customerEmail,
-              mode: "insensitive",
+        referral.tradeAccount;
+
+      console.log(
+        "================================="
+      );
+
+      console.log(
+        "TRADE ACCOUNT FOUND FROM REFERRAL"
+      );
+
+      console.log({
+        tradeAccountId:
+          tradeAccount.id,
+
+        businessName:
+          tradeAccount.businessName,
+
+        email:
+          tradeAccount.email,
+
+        pricingOption:
+          tradeAccount.pricingOption,
+
+        commissionPercent:
+          Number(
+            tradeAccount.commissionPercent
+          ),
+
+        referralCode:
+          tradeAccount.referralCode,
+      });
+
+      console.log(
+        "================================="
+      );
+    }
+
+    /* ==========================================================
+       8C. NORMAL TRADE ACCOUNT LOOKUP
+       ==========================================================
+       
+       This is only used when the order has not already been
+       associated with a Client Special Offer or Referral.
+    */
+
+    if (!tradeAccount) {
+      /*
+       * --------------------------------------------------------
+       * FIND BY SHOPIFY CUSTOMER ID
+       * --------------------------------------------------------
+       */
+
+      if (shopifyCustomerId) {
+        tradeAccount =
+          await prisma.tradeAccount.findFirst({
+            where: {
+              shopifyCustomerId,
+
+              status:
+                "ACTIVE",
             },
+          });
 
-            status: "ACTIVE",
-          },
-        });
+        if (tradeAccount) {
+          console.log(
+            "TRADE ACCOUNT FOUND BY SHOPIFY CUSTOMER ID"
+          );
+        }
+      }
 
+      /*
+       * --------------------------------------------------------
+       * FALL BACK TO EMAIL
+       * --------------------------------------------------------
+       */
 
-      if (tradeAccount) {
-        console.log(
-          "TRADE ACCOUNT FOUND BY EMAIL"
-        );
+      if (
+        !tradeAccount &&
+        customerEmail
+      ) {
+        tradeAccount =
+          await prisma.tradeAccount.findFirst({
+            where: {
+              email: {
+                equals:
+                  customerEmail,
+
+                mode:
+                  "insensitive",
+              },
+
+              status:
+                "ACTIVE",
+            },
+          });
+
+        if (tradeAccount) {
+          console.log(
+            "TRADE ACCOUNT FOUND BY EMAIL"
+          );
+        }
       }
     }
 
-
-    /*
-     * ============================================================
-     * 4. NO TRADE ACCOUNT
-     * ============================================================
-     */
+    /* ==========================================================
+       9. NO TRADE ACCOUNT
+       ==========================================================
+       
+       If there is:
+       
+       - no Client Special Offer owner
+       - no Referral owner
+       - no normal Trade Account
+       
+       then this is simply a normal Shopify order.
+    */
 
     if (!tradeAccount) {
+      console.log(
+        "================================="
+      );
+
       console.log(
         "NO ACTIVE TRADE ACCOUNT FOUND"
       );
 
       console.log(
         "ORDER DOES NOT BELONG TO A TRADE ACCOUNT"
+      );
+
+      console.log({
+        shopifyOrderId,
+        orderNumber,
+        customerEmail,
+        discountCodes,
+      });
+
+      console.log(
+        "================================="
       );
 
       return new Response(
@@ -262,12 +812,9 @@ export const action = async ({ request }) => {
       );
     }
 
-
-    /*
-     * ============================================================
-     * 5. TRADE ACCOUNT FOUND
-     * ============================================================
-     */
+    /* ==========================================================
+       10. TRADE ACCOUNT FOUND
+       ========================================================== */
 
     console.log(
       "================================="
@@ -308,278 +855,61 @@ export const action = async ({ request }) => {
 
       status:
         tradeAccount.status,
+
+      referralId,
+
+      clientSpecialOfferId:
+        clientSpecialOffer
+          ? clientSpecialOffer.id
+          : null,
+
+      clientSpecialOfferDiscountCode:
+        clientSpecialOffer
+          ? clientSpecialOffer.discountCode
+          : null,
     });
 
     console.log(
       "================================="
     );
 
-
-    /*
-     * ============================================================
-     * 6. GET DISCOUNT CODES
-     * ============================================================
-     */
-
-    const discountCodes =
-      Array.isArray(
-        order.discount_codes
-      )
-        ? order.discount_codes
-        : [];
-
-
-    console.log(
-      "================================="
-    );
-
-    console.log(
-      "DISCOUNT CODES"
-    );
-
-    console.log(
-      discountCodes
-    );
-
-    console.log(
-      "================================="
-    );
-
-
-    /*
-     * ============================================================
-     * 7. FIND CLIENT SPECIAL OFFER
-     * ============================================================
-     *
-     * We check every discount code used on the order.
-     *
-     * If a discount code matches an ACTIVE ClientSpecialOffer
-     * belonging to this TradeAccount, we use that offer's
-     * commission percentage.
-     */
-
-    let clientSpecialOffer = null;
-
-
-    for (
-      const discount of discountCodes
-    ) {
-      const code =
-        discount?.code
-          ?.toString()
-          .trim()
-          .toUpperCase();
-
-
-      if (!code) {
-        continue;
-      }
-
-
-      console.log(
-        "CHECKING DISCOUNT CODE:",
-        code
-      );
-
-
-      const offer =
-        await prisma.clientSpecialOffer.findFirst({
-          where: {
-            discountCode: {
-              equals: code,
-              mode: "insensitive",
-            },
-
-            tradeAccountId:
-              tradeAccount.id,
-
-            status:
-              "ACTIVE",
-          },
-        });
-
-
-      if (offer) {
-        /*
-         * --------------------------------------------------------
-         * EXPIRY CHECK
-         * --------------------------------------------------------
-         */
-
-        const now =
-          new Date();
-
-
-        if (
-          offer.expiresAt &&
-          new Date(
-            offer.expiresAt
-          ) < now
-        ) {
-          console.log(
-            "CLIENT SPECIAL OFFER IS EXPIRED"
-          );
-
-          console.log({
-            clientSpecialOfferId:
-              offer.id,
-
-            discountCode:
-              offer.discountCode,
-
-            expiresAt:
-              offer.expiresAt,
-          });
-
-          continue;
-        }
-
-
-        clientSpecialOffer =
-          offer;
-
-
-        console.log(
-          "================================="
-        );
-
-        console.log(
-          "CLIENT SPECIAL OFFER FOUND"
-        );
-
-        console.log({
-          clientSpecialOfferId:
-            clientSpecialOffer.id,
-
-          tradeAccountId:
-            clientSpecialOffer.tradeAccountId,
-
-          discountCode:
-            clientSpecialOffer.discountCode,
-
-          allocationPercent:
-            Number(
-              clientSpecialOffer.allocationPercent
-            ),
-
-          clientDiscountPercent:
-            Number(
-              clientSpecialOffer.clientDiscountPercent
-            ),
-
-          commissionPercent:
-            Number(
-              clientSpecialOffer.commissionPercent
-            ),
-
-          status:
-            clientSpecialOffer.status,
-
-          expiresAt:
-            clientSpecialOffer.expiresAt,
-        });
-
-        console.log(
-          "================================="
-        );
-
-
-        break;
-      }
-    }
-
-
-    /*
-     * ============================================================
-     * 8. FIND REFERRAL
-     * ============================================================
-     *
-     * We also check whether one of the discount codes
-     * belongs to a Referral record.
-     */
-
-    let referralId = null;
-
-
-    for (
-      const discount of discountCodes
-    ) {
-      const code =
-        discount?.code
-          ?.toString()
-          .trim();
-
-
-      if (!code) {
-        continue;
-      }
-
-
-      const referral =
-        await prisma.referral.findFirst({
-          where: {
-            referralCode: {
-              equals: code,
-              mode: "insensitive",
-            },
-
-            tradeAccountId:
-              tradeAccount.id,
-          },
-        });
-
-
-      if (referral) {
-        referralId =
-          referral.id;
-
-
-        console.log(
-          "REFERRAL FOUND:",
-          referral.id
-        );
-
-
-        break;
-      }
-    }
-
-
-    /*
-     * ============================================================
-     * 9. CALCULATE COMMISSION
-     * ============================================================
-     */
+    /* ==========================================================
+       11. DETERMINE PRICING OPTION
+       ========================================================== */
 
     let commissionRate = 0;
 
-
     /*
-     * eligibleAmount is the amount on which commission
-     * will be calculated.
+     * ----------------------------------------------------------
+     * ELIGIBLE AMOUNT
+     * ----------------------------------------------------------
+     *
+     * Default:
+     *
+     * Customer-paid subtotal.
      */
 
     let eligibleAmount =
       orderTotal;
 
-
-    /*
-     * ------------------------------------------------------------
-     * TRADE PRICE
-     * ------------------------------------------------------------
-     *
-     * Designer purchases products themselves using their
-     * trade discount.
-     *
-     * No commission.
-     */
+    /* ==========================================================
+       12. TRADE PRICE
+       ==========================================================
+       
+       Designer purchases products themselves.
+       
+       No commission.
+    */
 
     if (
       tradeAccount.pricingOption ===
       "TRADE_PRICE"
     ) {
-      commissionRate = 0;
+      commissionRate =
+        0;
 
+      eligibleAmount =
+        orderTotal;
 
       console.log(
         "================================="
@@ -598,113 +928,202 @@ export const action = async ({ request }) => {
       );
     }
 
-
-    /*
-     * ------------------------------------------------------------
-     * REFERRAL
-     * ------------------------------------------------------------
-     *
-     * Commission is calculated using the TradeAccount's
-     * configured commission percentage.
-     *
-     * Commission is currently based on the customer's
-     * product subtotal.
-     */
+    /* ==========================================================
+       13. REFERRAL
+       ==========================================================
+       
+       Referral orders:
+       
+       Customer pays normal retail price.
+       
+       Designer receives their configured referral commission.
+       
+       Example:
+       
+       Retail:
+       £1,000
+       
+       Commission:
+       15%
+       
+       Customer pays:
+       £1,000
+       
+       Designer earns:
+       £150
+    */
 
     if (
       tradeAccount.pricingOption ===
       "REFERRAL"
     ) {
-      commissionRate =
-        Number(
-          tradeAccount.commissionPercent
-        ) || 0;
+      /*
+       * --------------------------------------------------------
+       * VALID REFERRAL REQUIRED
+       * --------------------------------------------------------
+       */
 
+      if (
+        referral &&
+        referral.tradeAccountId ===
+          tradeAccount.id
+      ) {
+        commissionRate =
+          Number(
+            tradeAccount.commissionPercent
+          ) || 0;
 
-      eligibleAmount =
-        orderTotal;
+        eligibleAmount =
+          orderTotal;
 
+        console.log(
+          "================================="
+        );
 
-      console.log(
-        "================================="
-      );
+        console.log(
+          "PRICING OPTION: REFERRAL"
+        );
 
-      console.log(
-        "PRICING OPTION: REFERRAL"
-      );
+        console.log(
+          "VALID REFERRAL: YES"
+        );
 
-      console.log(
-        "COMMISSION RATE:",
-        commissionRate
-      );
+        console.log(
+          "REFERRAL ID:",
+          referral.id
+        );
 
-      console.log(
-        "ELIGIBLE AMOUNT:",
-        eligibleAmount
-      );
+        console.log(
+          "REFERRAL CODE:",
+          referral.referralCode
+        );
 
-      console.log(
-        "================================="
-      );
+        console.log(
+          "COMMISSION RATE:",
+          commissionRate
+        );
+
+        console.log(
+          "CUSTOMER RETAIL SUBTOTAL:",
+          orderTotal
+        );
+
+        console.log(
+          "ELIGIBLE AMOUNT:",
+          eligibleAmount
+        );
+
+        console.log(
+          "CUSTOMER DISCOUNT: 0%"
+        );
+
+        console.log(
+          "================================="
+        );
+      } else {
+        /*
+         * ------------------------------------------------------
+         * REFERRAL ACCOUNT BUT INVALID REFERRAL
+         * ------------------------------------------------------
+         */
+
+        commissionRate =
+          0;
+
+        eligibleAmount =
+          orderTotal;
+
+        console.log(
+          "================================="
+        );
+
+        console.log(
+          "REFERRAL ACCOUNT BUT NO VALID REFERRAL FOUND"
+        );
+
+        console.log(
+          "COMMISSION: 0%"
+        );
+
+        console.log(
+          "================================="
+        );
+      }
     }
 
-
-    /*
-     * ------------------------------------------------------------
-     * CLIENT SPECIAL PRICE
-     * ------------------------------------------------------------
-     *
-     * IMPORTANT BUSINESS LOGIC:
-     *
-     * Example:
-     *
-     * Original product price: £100
-     *
-     * Designer allocation: 15%
-     *
-     * Client discount: 10%
-     * Designer commission: 5%
-     *
-     * Customer pays:
-     *
-     * £100 - 10% = £90
-     *
-     * BUT the designer's commission is calculated
-     * from the ORIGINAL product value:
-     *
-     * £100 × 5% = £5
-     *
-     * NOT:
-     *
-     * £90 × 5% = £4.50
-     */
+    /* ==========================================================
+       14. CLIENT SPECIAL PRICE
+       ==========================================================
+       
+       BUSINESS RULE:
+       
+       Allocation:
+       15%
+       
+       Customer discount:
+       10%
+       
+       Designer commission:
+       5%
+       
+       Product original value:
+       £100
+       
+       Customer pays:
+       £90
+       
+       Designer commission:
+       £5
+       
+       IMPORTANT:
+       
+       Commission is calculated from ORIGINAL product value,
+       not the customer's discounted payment.
+       
+       Therefore:
+       
+       eligibleAmount = originalOrderValue
+    */
 
     if (
       tradeAccount.pricingOption ===
       "CLIENT_SPECIAL_PRICE"
     ) {
       /*
-       * We only calculate commission if the order
-       * actually used a valid Client Special Offer.
+       * --------------------------------------------------------
+       * VALID CLIENT SPECIAL OFFER REQUIRED
+       * --------------------------------------------------------
        */
 
-      if (clientSpecialOffer) {
+      if (
+        clientSpecialOffer &&
+        clientSpecialOffer.tradeAccountId ===
+          tradeAccount.id
+      ) {
         commissionRate =
           Number(
             clientSpecialOffer.commissionPercent
           ) || 0;
 
-
         /*
-         * IMPORTANT
+         * IMPORTANT:
          *
-         * Use the ORIGINAL product value before
-         * the customer discount.
+         * Commission is based on the original product value.
+         *
+         * Example:
+         *
+         * Original = £100
+         * Customer discount = 10%
+         * Customer pays = £90
+         * Commission = 5%
+         *
+         * Commission:
+         *
+         * £100 × 5% = £5
          */
 
         eligibleAmount =
           originalOrderValue;
-
 
         console.log(
           "================================="
@@ -715,13 +1134,46 @@ export const action = async ({ request }) => {
         );
 
         console.log(
-          "CLIENT SPECIAL OFFER:",
+          "VALID CLIENT SPECIAL OFFER: YES"
+        );
+
+        console.log(
+          "CLIENT SPECIAL OFFER ID:",
           clientSpecialOffer.id
+        );
+
+        console.log(
+          "TRADE ACCOUNT ID:",
+          tradeAccount.id
+        );
+
+        console.log(
+          "TRADE ACCOUNT:",
+          tradeAccount.businessName
         );
 
         console.log(
           "DISCOUNT CODE:",
           clientSpecialOffer.discountCode
+        );
+
+        console.log(
+          "ALLOCATION PERCENT:",
+          Number(
+            clientSpecialOffer.allocationPercent
+          )
+        );
+
+        console.log(
+          "CLIENT DISCOUNT PERCENT:",
+          Number(
+            clientSpecialOffer.clientDiscountPercent
+          )
+        );
+
+        console.log(
+          "DESIGNER COMMISSION PERCENT:",
+          commissionRate
         );
 
         console.log(
@@ -735,8 +1187,8 @@ export const action = async ({ request }) => {
         );
 
         console.log(
-          "COMMISSION RATE:",
-          commissionRate
+          "ELIGIBLE AMOUNT:",
+          eligibleAmount
         );
 
         console.log(
@@ -744,14 +1196,16 @@ export const action = async ({ request }) => {
         );
       } else {
         /*
-         * Client Special Price account, but no valid
-         * Client Special Offer discount code was found.
-         *
-         * Therefore no commission is created.
+         * ------------------------------------------------------
+         * NO VALID CLIENT SPECIAL OFFER
+         * ------------------------------------------------------
          */
 
-        commissionRate = 0;
+        commissionRate =
+          0;
 
+        eligibleAmount =
+          orderTotal;
 
         console.log(
           "================================="
@@ -771,12 +1225,9 @@ export const action = async ({ request }) => {
       }
     }
 
-
-    /*
-     * ============================================================
-     * 10. SAFETY CHECK
-     * ============================================================
-     */
+    /* ==========================================================
+       15. SAFETY CHECK
+       ========================================================== */
 
     if (
       commissionRate < 0 ||
@@ -787,15 +1238,13 @@ export const action = async ({ request }) => {
         commissionRate
       );
 
-      commissionRate = 0;
+      commissionRate =
+        0;
     }
 
-
-    /*
-     * ============================================================
-     * 11. CALCULATE COMMISSION AMOUNT
-     * ============================================================
-     */
+    /* ==========================================================
+       16. CALCULATE COMMISSION AMOUNT
+       ========================================================== */
 
     const commissionAmount =
       Number(
@@ -807,7 +1256,6 @@ export const action = async ({ request }) => {
         ).toFixed(2)
       );
 
-
     console.log(
       "================================="
     );
@@ -818,35 +1266,67 @@ export const action = async ({ request }) => {
 
     console.log({
       originalOrderValue,
+
       orderTotal,
+
       eligibleAmount,
+
       commissionRate,
+
       commissionAmount,
+
+      tradeAccountId:
+        tradeAccount.id,
+
+      tradeAccountBusinessName:
+        tradeAccount.businessName,
 
       clientSpecialOfferId:
         clientSpecialOffer
           ? clientSpecialOffer.id
           : null,
 
+      clientSpecialOfferDiscountCode:
+        clientSpecialOffer
+          ? clientSpecialOffer.discountCode
+          : null,
+
+      clientDiscountPercent:
+        clientSpecialOffer
+          ? Number(
+              clientSpecialOffer.clientDiscountPercent
+            )
+          : 0,
+
+      allocationPercent:
+        clientSpecialOffer
+          ? Number(
+              clientSpecialOffer.allocationPercent
+            )
+          : 0,
+
       referralId,
+
+      referralCode:
+        referral
+          ? referral.referralCode
+          : null,
     });
 
     console.log(
       "================================="
     );
 
-
-    /*
-     * ============================================================
-     * 12. SAVE COMMISSION
-     * ============================================================
-     *
-     * Shopify can send duplicate webhooks.
-     *
-     * shopifyOrderId is unique.
-     *
-     * Therefore upsert prevents duplicate commission records.
-     */
+    /* ==========================================================
+       17. SAVE COMMISSION
+       ==========================================================
+       
+       Shopify can send duplicate webhooks.
+       
+       shopifyOrderId is unique.
+       
+       Therefore upsert prevents duplicate commission records.
+    */
 
     const commission =
       await prisma.commission.upsert({
@@ -855,12 +1335,9 @@ export const action = async ({ request }) => {
             shopifyOrderId,
         },
 
-
-        /*
-         * --------------------------------------------------------
-         * UPDATE EXISTING COMMISSION
-         * --------------------------------------------------------
-         */
+        /* ------------------------------------------------------
+           UPDATE EXISTING COMMISSION
+        ------------------------------------------------------ */
 
         update: {
           tradeAccountId:
@@ -887,7 +1364,10 @@ export const action = async ({ request }) => {
           /*
            * Amount used to calculate commission.
            *
-           * For Client Special Price:
+           * REFERRAL:
+           * customer-paid retail subtotal.
+           *
+           * CLIENT SPECIAL PRICE:
            * original product value.
            */
 
@@ -901,12 +1381,9 @@ export const action = async ({ request }) => {
             commissionAmount,
         },
 
-
-        /*
-         * --------------------------------------------------------
-         * CREATE NEW COMMISSION
-         * --------------------------------------------------------
-         */
+        /* ------------------------------------------------------
+           CREATE NEW COMMISSION
+        ------------------------------------------------------ */
 
         create: {
           tradeAccountId:
@@ -934,7 +1411,7 @@ export const action = async ({ request }) => {
             orderTotal,
 
           /*
-           * Amount used for commission calculation.
+           * Amount used to calculate commission.
            */
 
           eligibleAmount:
@@ -951,12 +1428,9 @@ export const action = async ({ request }) => {
         },
       });
 
-
-    /*
-     * ============================================================
-     * 13. LOG RESULT
-     * ============================================================
-     */
+    /* ==========================================================
+       18. LOG RESULT
+       ========================================================== */
 
     console.log(
       "================================="
@@ -964,6 +1438,10 @@ export const action = async ({ request }) => {
 
     console.log(
       "ORDER / COMMISSION RECORD SAVED"
+    );
+
+    console.log(
+      "================================="
     );
 
     console.log({
@@ -986,7 +1464,7 @@ export const action = async ({ request }) => {
         commission.orderNumber,
 
       /*
-       * What customer paid after discount.
+       * What customer actually paid after discount.
        */
 
       orderTotal:
@@ -995,7 +1473,7 @@ export const action = async ({ request }) => {
         ),
 
       /*
-       * Original amount used to calculate commission.
+       * Amount used to calculate commission.
        */
 
       eligibleAmount:
@@ -1021,12 +1499,9 @@ export const action = async ({ request }) => {
       "================================="
     );
 
-
-    /*
-     * ============================================================
-     * 14. SUCCESS
-     * ============================================================
-     */
+    /* ==========================================================
+       19. SUCCESS
+       ========================================================== */
 
     return new Response(
       "OK",
@@ -1050,7 +1525,6 @@ export const action = async ({ request }) => {
     console.error(
       "================================="
     );
-
 
     /*
      * Return 500 so Shopify knows that

@@ -332,6 +332,38 @@ export const action = async ({ request }) => {
     const isCancelled =
       Boolean(cancelledAt);
 
+      /*
+ * ============================================================
+ * 7A. ALREADY CANCELLED COMMISSION
+ * ============================================================
+ *
+ * Once a commission has been cancelled, a later
+ * ORDERS_UPDATED webhook must NEVER restore commission.
+ *
+ * Shopify can send ORDERS_UPDATED after ORDERS_CANCELLED.
+ */
+
+if (commission.status === "CANCELLED") {
+  console.log("=================================");
+  console.log(
+    "COMMISSION ALREADY CANCELLED - NO RECALCULATION"
+  );
+  console.log("=================================");
+
+  console.log({
+    commissionId: commission.id,
+    shopifyOrderId,
+    orderNumber,
+    currentCommissionAmount:
+      Number(commission.commissionAmount),
+    status: commission.status,
+  });
+
+  return new Response("OK", {
+    status: 200,
+  });
+}
+
     /*
      * ============================================================
      * 8. IF ORDER HAS NO REFUND OR CANCELLATION
@@ -807,6 +839,30 @@ export const action = async ({ request }) => {
         ).toFixed(2)
       );
 
+      /*
+ * ============================================================
+ * CANCELLATION OVERRIDE
+ * ============================================================
+ *
+ * Cancellation always means £0 commission.
+ *
+ * This MUST override the refund calculation.
+ *
+ * Example:
+ *
+ * Original commission: £10
+ * Refunds: £95
+ * Refund calculation: £0.50
+ *
+ * BUT if the order is cancelled:
+ *
+ * Final commission: £0
+ */
+
+if (isCancelled) {
+  finalCommissionAmount = 0;
+}
+
     /*
      * ============================================================
      * 14. CALCULATE REFUND PERCENTAGE
@@ -1016,22 +1072,30 @@ export const action = async ({ request }) => {
      * ============================================================
      */
 
-    let finalStatus =
-      commission.status;
+ let finalStatus =
+  commission.status;
 
-    /*
-     * Fully refunded:
-     *
-     * CANCELLED
-     */
+/*
+ * ============================================================
+ * CANCELLATION / FULL REFUND STATUS
+ * ============================================================
+ *
+ * Cancellation ALWAYS takes priority.
+ */
 
-    if (
-      isFullyRefunded ||
-      entireAmountRefunded
-    ) {
-      finalStatus =
-        "CANCELLED";
-    }
+if (
+  isCancelled ||
+  isFullyRefunded ||
+  entireAmountRefunded
+) {
+  finalStatus = "CANCELLED";
+
+  /*
+   * A cancelled or fully refunded order must never
+   * retain commission.
+   */
+  finalCommissionAmount = 0;
+}
 
     /*
      * Partial refund:
