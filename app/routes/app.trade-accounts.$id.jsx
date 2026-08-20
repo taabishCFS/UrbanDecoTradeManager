@@ -19,13 +19,31 @@ import {
 ============================================================ */
 
 export async function loader({ request, params }) {
-  const { session } =
+  const { admin,session } =
     await authenticate.admin(request);
+
+    const shopResponse = await admin.graphql(`
+  #graphql
+  query GetShopDomain {
+    shop {
+      primaryDomain {
+        host
+        url
+      }
+    }
+  }
+`);
+
+const shopData = await shopResponse.json();
+
+const shopDomain =
+  shopData?.data?.shop?.primaryDomain?.host;
+
 
   console.log("=================================");
   console.log("TRADE ACCOUNT DETAIL ROUTE HIT");
   console.log("ID:", params.id);
-  console.log("SHOP:", session.shop);
+  console.log("STOREFRONT PRIMARY DOMAIN:", shopDomain);
   console.log("=================================");
 
 
@@ -70,8 +88,7 @@ export async function loader({ request, params }) {
 
 
   return {
-    shopDomain:
-      session.shop,
+    shopDomain,
 
     account: {
       id:
