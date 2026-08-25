@@ -2589,8 +2589,18 @@ const headerStyle = {
 };
 
 const backStyle = {
-  marginBottom: "12px",
+  marginBottom: "20px",
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "8px 14px",
   fontSize: "14px",
+  fontWeight: "500",
+  color: "#4A4A4A",
+  backgroundColor: "#F6F6F6",
+  border: "1px solid #E1E1E1",
+  borderRadius: "6px",
+  textDecoration: "none",
+  cursor: "pointer",
 };
 const titleStyle = {
   margin: 0,
