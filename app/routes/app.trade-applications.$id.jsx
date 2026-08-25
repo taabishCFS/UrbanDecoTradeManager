@@ -117,114 +117,144 @@ async function generateReferralCode() {
  * Returns the customer node (id, email, tags, etc.) or null
  * if no customer exists with that email.
  */
-async function findShopifyCustomerByEmail(
-  admin,
-  email
-) {
-  console.log(
-    "================================="
-  );
+async function findExistingShopifyCustomer(admin, email, phone) {
+  console.log("=================================");
+  console.log("SEARCHING SHOPIFY CUSTOMER");
+  console.log("EMAIL:", email);
+  console.log("PHONE:", phone);
+  console.log("=================================");
 
-  console.log(
-    "SEARCHING FOR EXISTING SHOPIFY CUSTOMER"
-  );
+  // ------------------------------------------------------------
+  // SEARCH BY EMAIL
+  // ------------------------------------------------------------
 
-  console.log(
-    "EMAIL:",
-    email
-  );
-
-  console.log(
-    "================================="
-  );
-
-  const response =
-    await admin.graphql(
-      `#graphql
-        query FindCustomerByEmail(
-          $query: String!
+  const emailResponse = await admin.graphql(
+    `#graphql
+      query FindCustomerByEmail($query: String!) {
+        customers(
+          first: 10
+          query: $query
         ) {
-          customers(
-            first: 1
-            query: $query
-          ) {
-            edges {
-              node {
-                id
-                firstName
-                lastName
-                email
-                phone
-                tags
-              }
+          edges {
+            node {
+              id
+              firstName
+              lastName
+              email
+              phone
+              tags
             }
           }
         }
-      `,
-      {
-        variables: {
-          query:
-            `email:${email}`,
-        },
       }
-    );
-
-  const result =
-    await response.json();
-
-  console.log(
-    "CUSTOMER SEARCH RESPONSE:"
+    `,
+    {
+      variables: {
+        query: `email:"${email}"`,
+      },
+    }
   );
 
-  console.log(
-    JSON.stringify(
-      result,
-      null,
-      2
-    )
-  );
+  const emailResult = await emailResponse.json();
 
-  if (
-    result.errors &&
-    result.errors.length > 0
-  ) {
-    console.error(
-      "CUSTOMER SEARCH GRAPHQL ERROR:",
-      result.errors
-    );
-
+  if (emailResult.errors?.length) {
     throw new Error(
-      "Shopify customer search failed: " +
-        result.errors
-          .map(
-            (error) =>
-              error.message
-          )
+      "Shopify email customer search failed: " +
+        emailResult.errors
+          .map((error) => error.message)
           .join(", ")
     );
   }
 
-  const edges =
-    result?.data?.customers
-      ?.edges || [];
+  const emailCustomers =
+    emailResult?.data?.customers?.edges?.map(
+      (edge) => edge.node
+    ) || [];
 
-  if (edges.length === 0) {
-    console.log(
-      "NO EXISTING CUSTOMER FOUND FOR THIS EMAIL."
+  // Exact email match
+  const emailCustomer =
+    emailCustomers.find(
+      (customer) =>
+        customer.email?.toLowerCase() ===
+        email.toLowerCase()
     );
 
-    return null;
+  if (emailCustomer) {
+    console.log(
+      "EXISTING CUSTOMER FOUND BY EMAIL:",
+      emailCustomer.id
+    );
+
+    return emailCustomer;
   }
 
-  const customer =
-    edges[0].node;
+  // ------------------------------------------------------------
+  // SEARCH BY PHONE
+  // ------------------------------------------------------------
 
-  console.log(
-    "EXISTING CUSTOMER FOUND:",
-    customer.id
+  const phoneResponse = await admin.graphql(
+    `#graphql
+      query FindCustomerByPhone($query: String!) {
+        customers(
+          first: 10
+          query: $query
+        ) {
+          edges {
+            node {
+              id
+              firstName
+              lastName
+              email
+              phone
+              tags
+            }
+          }
+        }
+      }
+    `,
+    {
+      variables: {
+        query: `phone:${phone}`,
+      },
+    }
   );
 
-  return customer;
+  const phoneResult = await phoneResponse.json();
+
+  if (phoneResult.errors?.length) {
+    throw new Error(
+      "Shopify phone customer search failed: " +
+        phoneResult.errors
+          .map((error) => error.message)
+          .join(", ")
+    );
+  }
+
+  const phoneCustomers =
+    phoneResult?.data?.customers?.edges?.map(
+      (edge) => edge.node
+    ) || [];
+
+  const phoneCustomer =
+    phoneCustomers.find(
+      (customer) =>
+        customer.phone === phone
+    );
+
+  if (phoneCustomer) {
+    console.log(
+      "EXISTING CUSTOMER FOUND BY PHONE:",
+      phoneCustomer.id
+    );
+
+    return phoneCustomer;
+  }
+
+  console.log(
+    "NO EXISTING SHOPIFY CUSTOMER FOUND BY EMAIL OR PHONE."
+  );
+
+  return null;
 }
 
 /**
@@ -1240,9 +1270,10 @@ if (actionType === "deleteCustomer") {
 
       try {
         reusedCustomer =
-          await findShopifyCustomerByEmail(
+          await findExistingShopifyCustomer(
             admin,
-            application.email
+            application.email,
+            phone
           );
       } catch (searchError) {
         console.error(
