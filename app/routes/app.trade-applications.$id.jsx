@@ -103,10 +103,379 @@ async function generateReferralCode() {
 
 /**
  * ============================================================
+ * FIND SHOPIFY CUSTOMER BY EMAIL
+ * ============================================================
+ *
+ * Used before creating a new Shopify customer on approval.
+ *
+ * If a customer already exists in this store with the
+ * applicant's email (whether they became a customer through
+ * a normal storefront order, a previous trade account, or
+ * any other route), we should reuse that record instead of
+ * creating a duplicate.
+ *
+ * Returns the customer node (id, email, tags, etc.) or null
+ * if no customer exists with that email.
+ */
+async function findShopifyCustomerByEmail(
+  admin,
+  email
+) {
+  console.log(
+    "================================="
+  );
+
+  console.log(
+    "SEARCHING FOR EXISTING SHOPIFY CUSTOMER"
+  );
+
+  console.log(
+    "EMAIL:",
+    email
+  );
+
+  console.log(
+    "================================="
+  );
+
+  const response =
+    await admin.graphql(
+      `#graphql
+        query FindCustomerByEmail(
+          $query: String!
+        ) {
+          customers(
+            first: 1
+            query: $query
+          ) {
+            edges {
+              node {
+                id
+                firstName
+                lastName
+                email
+                phone
+                tags
+              }
+            }
+          }
+        }
+      `,
+      {
+        variables: {
+          query:
+            `email:${email}`,
+        },
+      }
+    );
+
+  const result =
+    await response.json();
+
+  console.log(
+    "CUSTOMER SEARCH RESPONSE:"
+  );
+
+  console.log(
+    JSON.stringify(
+      result,
+      null,
+      2
+    )
+  );
+
+  if (
+    result.errors &&
+    result.errors.length > 0
+  ) {
+    console.error(
+      "CUSTOMER SEARCH GRAPHQL ERROR:",
+      result.errors
+    );
+
+    throw new Error(
+      "Shopify customer search failed: " +
+        result.errors
+          .map(
+            (error) =>
+              error.message
+          )
+          .join(", ")
+    );
+  }
+
+  const edges =
+    result?.data?.customers
+      ?.edges || [];
+
+  if (edges.length === 0) {
+    console.log(
+      "NO EXISTING CUSTOMER FOUND FOR THIS EMAIL."
+    );
+
+    return null;
+  }
+
+  const customer =
+    edges[0].node;
+
+  console.log(
+    "EXISTING CUSTOMER FOUND:",
+    customer.id
+  );
+
+  return customer;
+}
+
+/**
+ * ============================================================
+ * ADD TRADE_ACCOUNT TAG TO EXISTING CUSTOMER
+ * ============================================================
+ *
+ * Used when reusing an existing Shopify customer. This only
+ * ADDS the TRADE_ACCOUNT tag on top of whatever tags the
+ * customer already has - it never removes existing tags.
+ *
+ * If the customer already has the TRADE_ACCOUNT tag (e.g. a
+ * previous trade account that was deleted and is being
+ * re-approved), this is a no-op and no mutation is sent.
+ */
+async function addTradeAccountTag(
+  admin,
+  customer
+) {
+  const existingTags =
+    customer.tags || [];
+
+  if (
+    existingTags.includes(
+      "TRADE_ACCOUNT"
+    )
+  ) {
+    console.log(
+      "CUSTOMER ALREADY HAS TRADE_ACCOUNT TAG. SKIPPING TAG UPDATE."
+    );
+
+    return true;
+  }
+
+  const mergedTags = [
+    ...existingTags,
+    "TRADE_ACCOUNT",
+  ];
+
+  console.log(
+    "================================="
+  );
+
+  console.log(
+    "ADDING TRADE_ACCOUNT TAG TO EXISTING CUSTOMER"
+  );
+
+  console.log(
+    "CUSTOMER ID:",
+    customer.id
+  );
+
+  console.log(
+    "MERGED TAGS:",
+    mergedTags
+  );
+
+  console.log(
+    "================================="
+  );
+
+  const response =
+    await admin.graphql(
+      `#graphql
+        mutation customerUpdate(
+          $input: CustomerInput!
+        ) {
+          customerUpdate(
+            input: $input
+          ) {
+            customer {
+              id
+              tags
+            }
+
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `,
+      {
+        variables: {
+          input: {
+            id: customer.id,
+            tags: mergedTags,
+          },
+        },
+      }
+    );
+
+  const result =
+    await response.json();
+
+  console.log(
+    "CUSTOMER TAG UPDATE RESPONSE:"
+  );
+
+  console.log(
+    JSON.stringify(
+      result,
+      null,
+      2
+    )
+  );
+
+  const userErrors =
+    result?.data?.customerUpdate
+      ?.userErrors || [];
+
+  if (userErrors.length > 0) {
+    console.error(
+      "CUSTOMER TAG UPDATE ERROR:",
+      userErrors
+    );
+
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * ============================================================
+ * REMOVE TRADE_ACCOUNT TAG FROM EXISTING CUSTOMER
+ * ============================================================
+ *
+ * Rollback counterpart to addTradeAccountTag.
+ *
+ * IMPORTANT:
+ *
+ * This is used instead of deleteShopifyCustomer when the
+ * approval flow REUSED a pre-existing customer. We must
+ * never delete a customer we did not create - they may have
+ * unrelated order history in this store. The only thing this
+ * flow added was the tag, so rollback only removes the tag.
+ */
+async function removeTradeAccountTag(
+  admin,
+  customer
+) {
+  const existingTags =
+    customer.tags || [];
+
+  const remainingTags =
+    existingTags.filter(
+      (tag) =>
+        tag !== "TRADE_ACCOUNT"
+    );
+
+  console.log(
+    "================================="
+  );
+
+  console.log(
+    "ROLLBACK: REMOVING TRADE_ACCOUNT TAG FROM REUSED CUSTOMER"
+  );
+
+  console.log(
+    "CUSTOMER ID:",
+    customer.id
+  );
+
+  console.log(
+    "================================="
+  );
+
+  try {
+    const response =
+      await admin.graphql(
+        `#graphql
+          mutation customerUpdate(
+            $input: CustomerInput!
+          ) {
+            customerUpdate(
+              input: $input
+            ) {
+              customer {
+                id
+                tags
+              }
+
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        {
+          variables: {
+            input: {
+              id: customer.id,
+              tags: remainingTags,
+            },
+          },
+        }
+      );
+
+    const result =
+      await response.json();
+
+    console.log(
+      "ROLLBACK TAG REMOVAL RESPONSE:"
+    );
+
+    console.log(
+      JSON.stringify(
+        result,
+        null,
+        2
+      )
+    );
+
+    const userErrors =
+      result?.data
+        ?.customerUpdate
+        ?.userErrors || [];
+
+    if (userErrors.length > 0) {
+      console.error(
+        "ROLLBACK TAG REMOVAL FAILED:",
+        userErrors
+      );
+
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error(
+      "ROLLBACK TAG REMOVAL ERROR:",
+      error
+    );
+
+    return false;
+  }
+}
+
+/**
+ * ============================================================
  * DELETE SHOPIFY CUSTOMER
  * ============================================================
  *
- * This is used as a rollback/cleanup operation.
+ * This is used as a rollback/cleanup operation, and by the
+ * explicit "Delete Customer" admin action.
+ *
+ * IMPORTANT: only ever call this for a customer that THIS
+ * app created. Never call this for a reused/pre-existing
+ * customer - use removeTradeAccountTag for that instead.
  *
  * Example:
  *
@@ -147,8 +516,12 @@ async function deleteShopifyCustomer(
     const response =
       await admin.graphql(
         `#graphql
-          mutation customerDelete($id: ID!) {
-            customerDelete(id: $id) {
+          mutation customerDelete(
+            $input: CustomerDeleteInput!
+          ) {
+            customerDelete(
+              input: $input
+            ) {
               deletedCustomerId
 
               userErrors {
@@ -160,7 +533,9 @@ async function deleteShopifyCustomer(
         `,
         {
           variables: {
-            id: customerId,
+            input: {
+              id: customerId,
+            },
           },
         }
       );
@@ -796,117 +1171,52 @@ if (actionType === "deleteCustomer") {
 
       /**
        * ======================================================
-       * CREATE SHOPIFY CUSTOMER
+       * FIND OR CREATE SHOPIFY CUSTOMER
        * ======================================================
        *
        * IMPORTANT:
        *
        * Shopify is outside the Prisma transaction.
        *
-       * Therefore, if the database operation fails later,
-       * we explicitly delete this Shopify customer.
+       * If we CREATED a new customer and the database
+       * operation fails later, we explicitly delete that
+       * customer (deleteShopifyCustomer).
+       *
+       * If we REUSED an existing customer, we must NEVER
+       * delete them on rollback - they may have order
+       * history unrelated to this trade application. We
+       * only added a tag, so rollback only removes that tag
+       * (removeTradeAccountTag).
+       *
+       * customerWasCreatedByThisFlow tracks which rollback
+       * path to use.
        */
       console.log(
         "================================="
       );
 
       console.log(
-        "CREATING SHOPIFY CUSTOMER..."
+        "CHECKING FOR EXISTING SHOPIFY CUSTOMER..."
       );
 
       console.log(
         "================================="
       );
 
-      const customerResponse =
-        await admin.graphql(
-          `#graphql
-            mutation customerCreate(
-              $input: CustomerInput!
-            ) {
-              customerCreate(
-                input: $input
-              ) {
-                customer {
-                  id
-                  firstName
-                  lastName
-                  email
-                  phone
-                  tags
-                }
+      let shopifyCustomerId;
+      let customerWasCreatedByThisFlow = false;
+      let reusedCustomer = null;
 
-                userErrors {
-                  field
-                  message
-                }
-              }
-            }
-          `,
-          {
-            variables: {
-              input: {
-                firstName:
-                  application.firstName,
-
-                lastName:
-                  application.lastName,
-
-                email:
-                  application.email,
-
-                phone,
-                tags:[
-"TRADE_ACCOUNT"
-]
-              },
-            },
-          }
-        );
-
-      const customerResult =
-        await customerResponse.json();
-
-      console.log(
-        "SHOPIFY CUSTOMER RESPONSE:"
-      );
-
-      console.log(
-        JSON.stringify(
-          customerResult,
-          null,
-          2
-        )
-      );
-
-      /**
-       * ------------------------------------------------------
-       * Shopify customer creation errors
-       * ------------------------------------------------------
-       */
-      const customerCreate =
-        customerResult
-          ?.data
-          ?.customerCreate;
-
-      const userErrors =
-        customerCreate
-          ?.userErrors || [];
-
-      if (
-        userErrors.length > 0
-      ) {
-        const errorMessage =
-          userErrors
-            .map(
-              (error) =>
-                error.message
-            )
-            .join(", ");
-
+      try {
+        reusedCustomer =
+          await findShopifyCustomerByEmail(
+            admin,
+            application.email
+          );
+      } catch (searchError) {
         console.error(
-          "SHOPIFY CUSTOMER CREATION ERROR:",
-          errorMessage
+          "SHOPIFY CUSTOMER SEARCH FAILED:",
+          searchError
         );
 
         return Response.json(
@@ -914,33 +1224,8 @@ if (actionType === "deleteCustomer") {
             success: false,
 
             message:
-              `Shopify customer creation failed: ${errorMessage}`,
-          },
-          {
-            status: 400,
-          }
-        );
-      }
-
-      /**
-       * ------------------------------------------------------
-       * Make sure customer was returned
-       * ------------------------------------------------------
-       */
-      const customer =
-        customerCreate?.customer;
-
-      if (!customer?.id) {
-        console.error(
-          "SHOPIFY CUSTOMER WAS NOT CREATED."
-        );
-
-        return Response.json(
-          {
-            success: false,
-
-            message:
-              "Shopify did not return a customer ID. The application has not been approved.",
+              "Unable to check for an existing Shopify customer. The application was not approved: " +
+              searchError.message,
           },
           {
             status: 500,
@@ -948,16 +1233,238 @@ if (actionType === "deleteCustomer") {
         );
       }
 
-      const shopifyCustomerId =
-        customer.id;
+      if (reusedCustomer) {
+        /**
+         * ----------------------------------------------------
+         * REUSE EXISTING CUSTOMER
+         * ----------------------------------------------------
+         */
+        console.log(
+          "================================="
+        );
 
-      console.log(
-        "SHOPIFY CUSTOMER CREATED:"
-      );
+        console.log(
+          "REUSING EXISTING SHOPIFY CUSTOMER"
+        );
 
-      console.log(
-        shopifyCustomerId
-      );
+        console.log(
+          "CUSTOMER ID:",
+          reusedCustomer.id
+        );
+
+        console.log(
+          "================================="
+        );
+
+        const tagAdded =
+          await addTradeAccountTag(
+            admin,
+            reusedCustomer
+          );
+
+        if (!tagAdded) {
+          return Response.json(
+            {
+              success: false,
+
+              message:
+                "An existing Shopify customer was found for this email, but the TRADE_ACCOUNT tag could not be added. The application was not approved.",
+            },
+            {
+              status: 500,
+            }
+          );
+        }
+
+        shopifyCustomerId =
+          reusedCustomer.id;
+
+        customerWasCreatedByThisFlow = false;
+      } else {
+        /**
+         * ----------------------------------------------------
+         * CREATE NEW CUSTOMER
+         * ----------------------------------------------------
+         */
+        console.log(
+          "================================="
+        );
+
+        console.log(
+          "NO EXISTING CUSTOMER FOUND. CREATING NEW SHOPIFY CUSTOMER..."
+        );
+
+        console.log(
+          "================================="
+        );
+
+        const customerResponse =
+          await admin.graphql(
+            `#graphql
+              mutation customerCreate(
+                $input: CustomerInput!
+              ) {
+                customerCreate(
+                  input: $input
+                ) {
+                  customer {
+                    id
+                    firstName
+                    lastName
+                    email
+                    phone
+                    tags
+                  }
+
+                  userErrors {
+                    field
+                    message
+                  }
+                }
+              }
+            `,
+            {
+              variables: {
+                input: {
+                  firstName:
+                    application.firstName,
+
+                  lastName:
+                    application.lastName,
+
+                  email:
+                    application.email,
+
+                  phone,
+                  tags:[
+"TRADE_ACCOUNT"
+]
+                },
+              },
+            }
+          );
+
+        const customerResult =
+          await customerResponse.json();
+
+        console.log(
+          "SHOPIFY CUSTOMER RESPONSE:"
+        );
+
+        console.log(
+          JSON.stringify(
+            customerResult,
+            null,
+            2
+          )
+        );
+
+        /**
+         * --------------------------------------------------
+         * Shopify customer creation errors
+         * --------------------------------------------------
+         */
+        const customerCreate =
+          customerResult
+            ?.data
+            ?.customerCreate;
+
+        const userErrors =
+          customerCreate
+            ?.userErrors || [];
+
+        if (
+          userErrors.length > 0
+        ) {
+          const errorMessage =
+            userErrors
+              .map(
+                (error) =>
+                  error.message
+              )
+              .join(", ");
+
+          console.error(
+            "SHOPIFY CUSTOMER CREATION ERROR:",
+            errorMessage
+          );
+
+          return Response.json(
+            {
+              success: false,
+
+              message:
+                `Shopify customer creation failed: ${errorMessage}`,
+            },
+            {
+              status: 400,
+            }
+          );
+        }
+
+        /**
+         * --------------------------------------------------
+         * Make sure customer was returned
+         * --------------------------------------------------
+         */
+        const customer =
+          customerCreate?.customer;
+
+        if (!customer?.id) {
+          console.error(
+            "SHOPIFY CUSTOMER WAS NOT CREATED."
+          );
+
+          return Response.json(
+            {
+              success: false,
+
+              message:
+                "Shopify did not return a customer ID. The application has not been approved.",
+            },
+            {
+              status: 500,
+            }
+          );
+        }
+
+        shopifyCustomerId =
+          customer.id;
+
+        customerWasCreatedByThisFlow = true;
+
+        console.log(
+          "SHOPIFY CUSTOMER CREATED:"
+        );
+
+        console.log(
+          shopifyCustomerId
+        );
+      }
+
+      /**
+       * ======================================================
+       * ROLLBACK HELPER
+       * ======================================================
+       *
+       * Picks the correct rollback strategy depending on
+       * whether the customer was created or reused above.
+       */
+      async function rollbackShopifyCustomer() {
+        if (
+          customerWasCreatedByThisFlow
+        ) {
+          return await deleteShopifyCustomer(
+            admin,
+            shopifyCustomerId
+          );
+        }
+
+        return await removeTradeAccountTag(
+          admin,
+          reusedCustomer
+        );
+      }
 
       /**
        * ======================================================
@@ -980,9 +1487,9 @@ if (actionType === "deleteCustomer") {
          * REFERRAL CODE GENERATION FAILED
          * ----------------------------------------------------
          *
-         * Shopify customer already exists.
-         *
-         * Delete it because approval cannot continue.
+         * Shopify customer already exists (created or
+         * reused). Roll it back because approval cannot
+         * continue.
          * ----------------------------------------------------
          */
         console.error(
@@ -991,17 +1498,14 @@ if (actionType === "deleteCustomer") {
 
         console.error(error);
 
-        await deleteShopifyCustomer(
-          admin,
-          shopifyCustomerId
-        );
+        await rollbackShopifyCustomer();
 
         return Response.json(
           {
             success: false,
 
             message:
-              "Unable to generate a unique referral code. The Shopify customer was rolled back and the application was not approved.",
+              "Unable to generate a unique referral code. The Shopify customer change was rolled back and the application was not approved.",
           },
           {
             status: 500,
@@ -1022,7 +1526,7 @@ if (actionType === "deleteCustomer") {
        * If either operation fails:
        *
        * - Prisma transaction rolls back
-       * - Shopify customer is deleted below
+       * - Shopify customer change is rolled back below
        *
        * This prevents:
        *
@@ -1156,6 +1660,11 @@ if (actionType === "deleteCustomer") {
         );
 
         console.log(
+          "CUSTOMER WAS REUSED:",
+          !customerWasCreatedByThisFlow
+        );
+
+        console.log(
           "REFERRAL CODE:",
           referralCode
         );
@@ -1171,7 +1680,9 @@ if (actionType === "deleteCustomer") {
           action: "approve",
 
           message:
-            "Trade application approved successfully.",
+            customerWasCreatedByThisFlow
+              ? "Trade application approved successfully."
+              : "Trade application approved successfully using an existing Shopify customer.",
 
           applicationId:
             result
@@ -1198,12 +1709,14 @@ if (actionType === "deleteCustomer") {
          *
          * At this point:
          *
-         * Shopify customer exists.
+         * Shopify customer exists (created or reused, and
+         * tagged TRADE_ACCOUNT).
          *
          * Prisma transaction has rolled back.
          *
-         * Therefore we MUST attempt to delete the Shopify
-         * customer so it does not become orphaned.
+         * Therefore we MUST attempt to roll back the Shopify
+         * side too, so it does not end up in an inconsistent
+         * state.
          */
         console.error(
           "================================="
@@ -1226,10 +1739,7 @@ if (actionType === "deleteCustomer") {
         );
 
         const rollbackSuccessful =
-          await deleteShopifyCustomer(
-            admin,
-            shopifyCustomerId
-          );
+          await rollbackShopifyCustomer();
 
         if (
           rollbackSuccessful
@@ -1243,10 +1753,10 @@ if (actionType === "deleteCustomer") {
            * IMPORTANT
            * --------------------------------------------------
            *
-           * If Shopify deletion also fails, log the
+           * If Shopify rollback also fails, log the
            * customer ID very clearly.
            *
-           * This allows you to manually delete it later.
+           * This allows you to manually fix it later.
            * --------------------------------------------------
            */
           console.error(
@@ -1258,8 +1768,13 @@ if (actionType === "deleteCustomer") {
           );
 
           console.error(
-            "ORPHANED SHOPIFY CUSTOMER ID:",
+            "SHOPIFY CUSTOMER ID:",
             shopifyCustomerId
+          );
+
+          console.error(
+            "CUSTOMER WAS CREATED BY THIS FLOW:",
+            customerWasCreatedByThisFlow
           );
 
           console.error(
@@ -1278,8 +1793,8 @@ if (actionType === "deleteCustomer") {
 
             message:
               rollbackSuccessful
-                ? "Approval failed. The database transaction was rolled back and the Shopify customer was deleted."
-                : "Approval failed. The database transaction was rolled back, but the Shopify customer could not be deleted. Check the server logs for the Shopify customer ID.",
+                ? "Approval failed. The database transaction was rolled back and the Shopify customer change was undone."
+                : "Approval failed. The database transaction was rolled back, but the Shopify customer change could not be undone. Check the server logs for the Shopify customer ID.",
 
             applicationId:
               application.id,
@@ -2306,4 +2821,3 @@ export const headers = (
     headersArgs
   );
 };
-
