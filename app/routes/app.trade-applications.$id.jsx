@@ -1958,8 +1958,8 @@ export default function TradeApplicationDetail() {
 
       <div style={headerStyle}>
 
-        <div style={backStyle}>
-            <Link  to="/app/trade-applications">
+        <div >
+            <Link style={backStyle}  to="/app/trade-applications">
               ← Back to Trade Applications
             </Link >
           </div>

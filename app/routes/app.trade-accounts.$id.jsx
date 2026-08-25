@@ -1933,8 +1933,8 @@ export default function TradeAccountDetail() {
 
         <div>
 
-          <div style={backStyle}>
-            <Link  to="/app/trade-accounts">
+          <div >
+            <Link style={backStyle} to="/app/trade-accounts">
               ← Back to Trade Accounts
             </Link >
           </div>
