@@ -1934,7 +1934,7 @@ export default function TradeAccountDetail() {
         <div>
 
           <div style={backStyle}>
-            <Link  href="/app/trade-accounts">
+            <Link  to="/app/trade-accounts">
               ← Back to Trade Accounts
             </Link >
           </div>

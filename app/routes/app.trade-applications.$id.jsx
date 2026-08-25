@@ -1,6 +1,7 @@
 
 import {
   Form,
+  Link,
   useActionData,
   useLoaderData,
   useNavigation,
@@ -1958,7 +1959,7 @@ export default function TradeApplicationDetail() {
       <div style={headerStyle}>
 
         <div style={backStyle}>
-            <Link  href="/app/trade-applications">
+            <Link  to="/app/trade-applications">
               ← Back to Trade Applications
             </Link >
           </div>
