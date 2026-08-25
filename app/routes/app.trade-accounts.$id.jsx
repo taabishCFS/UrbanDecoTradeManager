@@ -1626,6 +1626,231 @@ export async function action({
 
 
   /* ==========================================================
+     CLOSE ACCOUNT (SOFT DELETE)
+
+     This does NOT delete any database records. It only:
+
+       1. Removes the live Shopify trade price discount
+          and any active Client Special Price discounts,
+          since a closed account should no longer give
+          anyone active pricing in the store.
+
+       2. Sets the TradeAccount status to CLOSED.
+
+     Commission, Referral, ClientSpecialOffer, and
+     CommissionAdjustment rows are all preserved for
+     audit/financial history.
+  ========================================================== */
+
+  if (
+    intent ===
+    "closeAccount"
+  ) {
+
+    const account =
+      await prisma.tradeAccount.findUnique({
+        where: {
+          id: params.id,
+        },
+
+        include: {
+          clientSpecialOffers: true,
+        },
+      });
+
+
+    if (!account) {
+      return {
+        success: false,
+        error:
+          "Trade account not found.",
+      };
+    }
+
+
+    if (
+      account.status === "CLOSED"
+    ) {
+      return {
+        success: false,
+        error:
+          "This trade account is already closed.",
+      };
+    }
+
+
+    /* ----------------------------------------------------------
+       REMOVE SHOPIFY TRADE PRICE DISCOUNT
+    ---------------------------------------------------------- */
+
+    if (
+      account.shopifyTradeDiscountId
+    ) {
+
+      try {
+
+        await deleteTradePriceDiscount({
+          admin,
+
+          tradeAccount:
+            account,
+        });
+
+      } catch (error) {
+
+        console.error(
+          "FAILED TO DELETE SHOPIFY TRADE DISCOUNT",
+          error
+        );
+
+      }
+    }
+
+
+    /* ----------------------------------------------------------
+       REMOVE ACTIVE CLIENT SPECIAL OFFER DISCOUNTS IN SHOPIFY
+
+       These local ClientSpecialOffer rows are NOT deleted —
+       only their status is set to CANCELLED below, and the
+       live Shopify discount code is removed so it can no
+       longer be redeemed.
+    ---------------------------------------------------------- */
+
+    for (
+      const offer of
+      account.clientSpecialOffers
+    ) {
+
+      if (
+        offer.status === "ACTIVE" &&
+        offer.shopifyDiscountId
+      ) {
+
+        try {
+
+          await admin.graphql(
+            `#graphql
+              mutation DeleteClientSpecialDiscount(
+                $id: ID!
+              ) {
+                discountCodeBasicDelete(
+                  id: $id
+                ) {
+                  deletedCodeDiscountId
+
+                  userErrors {
+                    field
+                    message
+                    code
+                  }
+                }
+              }
+            `,
+            {
+              variables: {
+                id:
+                  offer.shopifyDiscountId,
+              },
+            }
+          );
+
+        } catch (error) {
+
+          console.error(
+            "FAILED TO DELETE CLIENT SPECIAL DISCOUNT",
+            offer.id,
+            error
+          );
+
+        }
+      }
+    }
+
+
+    /* ----------------------------------------------------------
+       UPDATE DATABASE (NO DELETIONS)
+
+       - TradeAccount status -> CLOSED
+       - Any still-ACTIVE ClientSpecialOffer rows -> CANCELLED
+         (their Shopify discount was just removed above, so
+         the local status should reflect that it can no
+         longer be used)
+
+       Commission and Referral history is left completely
+       untouched.
+    ---------------------------------------------------------- */
+
+    try {
+
+      await prisma.$transaction([
+
+        prisma.clientSpecialOffer.updateMany({
+          where: {
+            tradeAccountId:
+              params.id,
+
+            status:
+              "ACTIVE",
+          },
+
+          data: {
+            status:
+              "CANCELLED",
+          },
+        }),
+
+        prisma.tradeAccount.update({
+          where: {
+            id: params.id,
+          },
+
+          data: {
+            status:
+              "CLOSED",
+          },
+        }),
+
+      ]);
+
+    } catch (error) {
+
+      console.error(
+        "================================="
+      );
+
+      console.error(
+        "FAILED TO CLOSE TRADE ACCOUNT"
+      );
+
+      console.error(
+        error
+      );
+
+      console.error(
+        "================================="
+      );
+
+
+      return {
+        success: false,
+
+        error:
+          "Trade account could not be closed: " +
+          error.message,
+      };
+    }
+
+
+    return {
+      success: true,
+
+      message:
+        "Trade account closed. All commission and referral history has been preserved.",
+    };
+  }
+
+
+  /* ==========================================================
      UNKNOWN ACTION
   ========================================================== */
 
@@ -3008,7 +3233,62 @@ export default function TradeAccountDetail() {
 
           )}
 
+
+          {account.status !==
+            "CLOSED" && (
+
+            <Form
+              method="post"
+              onSubmit={(event) => {
+
+                if (
+                  !window.confirm(
+                    "Are you sure you want to close this trade account? " +
+                    "Any active Shopify discounts for this designer will be removed. " +
+                    "Commission and referral history will be kept."
+                  )
+                ) {
+                  event.preventDefault();
+                }
+
+              }}
+            >
+
+              <input
+                type="hidden"
+                name="intent"
+                value="closeAccount"
+              />
+
+              <button
+                type="submit"
+                style={dangerButton}
+                disabled={isSaving}
+              >
+                {isSaving
+                  ? "Closing..."
+                  : "Close Account"}
+              </button>
+
+            </Form>
+
+          )}
+
         </div>
+
+
+        {actionData?.success && (
+          <div style={successMessageStyle}>
+            {actionData.message}
+          </div>
+        )}
+
+
+        {actionData?.error && (
+          <div style={errorMessageStyle}>
+            {actionData.error}
+          </div>
+        )}
 
       </Section>
 
