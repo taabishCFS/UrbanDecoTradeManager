@@ -1957,6 +1957,11 @@ export default function TradeApplicationDetail() {
 
       <div style={headerStyle}>
 
+        <div style={backStyle}>
+            <Link  href="/app/trade-applications">
+              ← Back to Trade Applications
+            </Link >
+          </div>
         <div>
           <h1 style={titleStyle}>
             Trade Application
@@ -2582,6 +2587,10 @@ const headerStyle = {
     "30px",
 };
 
+const backStyle = {
+  marginBottom: "12px",
+  fontSize: "14px",
+};
 const titleStyle = {
   margin: 0,
 

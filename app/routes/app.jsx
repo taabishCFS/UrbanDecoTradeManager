@@ -16,9 +16,9 @@ export default function App() {
   return (
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-  <s-link href="/app">
+  {/* <s-link href="/app">
     Home
-  </s-link>
+  </s-link> */}
 
   <s-link href="/app/trade-applications">
     Trade Applications
@@ -30,9 +30,9 @@ export default function App() {
 <s-link href="/app/commissions">
           Commissions
         </s-link>
-  <s-link href="/app/additional">
+  {/* <s-link href="/app/additional">
     Additional page
-  </s-link>
+  </s-link> */}
 
         
 </s-app-nav>

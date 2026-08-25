@@ -1,5 +1,6 @@
 import {
   Form,
+  Link,
   useLoaderData,
   useNavigation,
   useActionData,
@@ -1933,9 +1934,9 @@ export default function TradeAccountDetail() {
         <div>
 
           <div style={backStyle}>
-            <a href="/app/trade-accounts">
+            <Link  href="/app/trade-accounts">
               ← Back to Trade Accounts
-            </a>
+            </Link >
           </div>
 
           <h1 style={titleStyle}>
