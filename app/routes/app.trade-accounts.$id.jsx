@@ -1144,7 +1144,14 @@ export async function action({
                   all: true,
                 },
               },
-
+ // =========================================================
+    // ALLOW TRADE PRICE TO COMBINE WITH OTHER DISCOUNT CLASSES
+    // =========================================================
+          combinesWith: {
+      productDiscounts: true,
+      orderDiscounts: true,
+      shippingDiscounts: true,
+    },
               usageLimit: 1,
 
               appliesOncePerCustomer:
