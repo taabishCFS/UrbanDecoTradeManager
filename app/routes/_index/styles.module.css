@@ -1,418 +1,73 @@
-.dashboard {
-  min-height: 100vh;
-  padding: 36px;
-  background: #f6f6f4;
-  color: #1f1f1d;
-  box-sizing: border-box;
-}
-
-.header {
-  max-width: 1400px;
-  margin: 0 auto 30px;
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 30px;
-  font-weight: 650;
-  letter-spacing: -0.5px;
-}
-
-.header p {
-  margin: 8px 0 0;
-  color: #6f6f69;
-  font-size: 15px;
-}
-
-.statsGrid {
-  max-width: 1400px;
-  margin: 0 auto 32px;
-
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
-}
-
-.statCard {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-
-  background: #ffffff;
-  border: 1px solid #e4e4df;
-  border-radius: 12px;
-
-  padding: 22px;
-
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
-}
-
-.statCard:hover {
-  transform: translateY(-2px);
-  border-color: #cfcfc8;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
-}
-
-.statTop {
-  display: flex;
-  justify-content: space-between;
+.index {
   align-items: center;
-}
-
-.statLabel {
-  font-size: 14px;
-  color: #6c6c66;
-  font-weight: 500;
-}
-
-.statIcon {
-  width: 34px;
-  height: 34px;
-
   display: flex;
-  align-items: center;
   justify-content: center;
-
-  border-radius: 9px;
-  background: #f1f1ed;
-
-  font-size: 15px;
-}
-
-.statNumber {
-  margin-top: 18px;
-
-  font-size: 30px;
-  line-height: 1;
-  font-weight: 650;
-  letter-spacing: -0.5px;
-}
-
-.statFooter {
-  margin-top: 12px;
-
-  color: #7b7b74;
-  font-size: 13px;
-}
-
-.section {
-  max-width: 1400px;
-  margin: 0 auto 30px;
-}
-
-.sectionHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-
-  margin-bottom: 15px;
-}
-
-.sectionHeader h2 {
-  margin: 0;
-
-  font-size: 20px;
-  font-weight: 620;
-}
-
-.sectionHeader p {
-  margin: 5px 0 0;
-
-  font-size: 14px;
-  color: #777770;
-}
-
-.viewAll {
-  color: #1f1f1d;
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.viewAll:hover {
-  text-decoration: underline;
-}
-
-.actionGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-}
-
-.actionCard {
-  position: relative;
-
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-
-  padding: 22px;
-
-  background: #ffffff;
-  border: 1px solid #e4e4df;
-  border-radius: 12px;
-
-  text-decoration: none;
-  color: inherit;
-
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.actionCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
-}
-
-.actionIcon {
-  width: 42px;
-  height: 42px;
-  flex: 0 0 42px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  border-radius: 10px;
-
-  background: #f1f1ed;
-
-  font-size: 17px;
-  font-weight: 600;
-}
-
-.actionCard h3 {
-  margin: 1px 0 5px;
-
-  font-size: 15px;
-  font-weight: 620;
-}
-
-.actionCard p {
-  margin: 0;
-
-  color: #777770;
-
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.arrow {
-  margin-left: auto;
-  color: #777770;
-  font-size: 18px;
-}
-
-.tableCard {
-  overflow: hidden;
-
-  background: #ffffff;
-  border: 1px solid #e4e4df;
-  border-radius: 12px;
-}
-
-.tableWrapper {
+  height: 100%;
   width: 100%;
-  overflow-x: auto;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.table th {
-  padding: 14px 18px;
-
-  background: #fafaf8;
-
-  text-align: left;
-
-  font-size: 12px;
-  font-weight: 600;
-  color: #777770;
-
-  border-bottom: 1px solid #e8e8e3;
-}
-
-.table td {
-  padding: 16px 18px;
-
-  font-size: 13px;
-
-  border-bottom: 1px solid #eeeeea;
-}
-
-.table tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-.table tbody tr:hover {
-  background: #fafaf8;
-}
-
-.status {
-  display: inline-flex;
-
-  padding: 5px 9px;
-
-  border-radius: 999px;
-
-  font-size: 11px;
-  font-weight: 650;
-}
-
-.pending {
-  background: #fff4d6;
-  color: #876414;
-}
-
-.approved {
-  background: #e8f5eb;
-  color: #276238;
-}
-
-.rejected {
-  background: #fcebea;
-  color: #963c38;
-}
-
-.empty {
-  padding: 55px 20px;
   text-align: center;
+  padding: 1rem;
 }
 
-.emptyIcon {
-  margin-bottom: 12px;
-
-  font-size: 30px;
-}
-
-.empty h3 {
-  margin: 0 0 6px;
-
-  font-size: 16px;
-}
-
-.empty p {
+.heading,
+.text {
+  padding: 0;
   margin: 0;
-
-  color: #777770;
-
-  font-size: 13px;
 }
 
-/* ============================================================
-   LOGIN
-============================================================ */
+.text {
+  font-size: 1.2rem;
+  padding-bottom: 2rem;
+}
 
-.loginPage {
-  min-height: 100vh;
+.content {
+  display: grid;
+  gap: 2rem;
+}
 
+.form {
   display: flex;
   align-items: center;
-  justify-content: center;
-
-  padding: 30px;
-
-  background: #f6f6f4;
+  justify-content: flex-start;
+  margin: 0 auto;
+  gap: 1rem;
 }
 
-.loginCard {
-  width: 100%;
-  max-width: 430px;
-
-  padding: 35px;
-
-  background: #ffffff;
-
-  border: 1px solid #e4e4df;
-  border-radius: 14px;
+.label {
+  display: grid;
+  gap: 0.2rem;
+  max-width: 20rem;
+  text-align: left;
+  font-size: 1rem;
 }
 
-.loginCard h1 {
-  margin: 0 0 10px;
-
-  font-size: 25px;
+.input {
+  padding: 0.4rem;
 }
 
-.loginCard p {
-  margin: 0 0 25px;
-
-  color: #6f6f69;
-  line-height: 1.5;
+.button {
+  padding: 0.4rem;
 }
 
-.loginForm {
+.list {
+  list-style: none;
+  padding: 0;
+  padding-top: 3rem;
+  margin: 0;
   display: flex;
-  flex-direction: column;
-  gap: 15px;
+  gap: 2rem;
 }
 
-.loginForm label {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-
-  font-size: 13px;
-  font-weight: 600;
+.list > li {
+  max-width: 20rem;
+  text-align: left;
 }
 
-.loginForm input {
-  width: 100%;
-  box-sizing: border-box;
-
-  padding: 11px 12px;
-
-  border: 1px solid #d8d8d2;
-  border-radius: 8px;
-
-  font-size: 14px;
-}
-
-.loginForm button {
-  padding: 12px;
-
-  border: 0;
-  border-radius: 8px;
-
-  background: #1f1f1d;
-  color: white;
-
-  font-size: 14px;
-  font-weight: 600;
-
-  cursor: pointer;
-}
-
-/* ============================================================
-   RESPONSIVE
-============================================================ */
-
-@media (max-width: 1000px) {
-  .statsGrid {
-    grid-template-columns: repeat(2, 1fr);
+@media only screen and (max-width: 50rem) {
+  .list {
+    display: block;
   }
 
-  .actionGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 600px) {
-  .dashboard {
-    padding: 20px;
-  }
-
-  .statsGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .header h1 {
-    font-size: 25px;
+  .list > li {
+    padding-bottom: 1rem;
   }
 }
