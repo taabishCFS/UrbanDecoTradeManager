@@ -896,14 +896,45 @@ if (actionType === "deleteCustomer") {
    * Shopify deletion succeeded
    *
    * Now delete the local Trade Account.
+   *
+   * IMPORTANT:
+   *
+   * Per the Prisma schema, Referral and Commission do NOT
+   * cascade from TradeAccount (no onDelete: Cascade on
+   * those relations), so tradeAccount.delete() alone will
+   * throw a foreign key constraint error if either exists
+   * for this account. ClientSpecialOffer DOES cascade, so
+   * it does not need to be deleted manually here.
+   *
+   * Deleting a Commission automatically cascades its
+   * CommissionAdjustment rows (onDelete: Cascade), so those
+   * do not need to be deleted manually either.
    * ------------------------------------------------------
    */
   try {
-    await prisma.tradeAccount.delete({
-      where: {
-        id: tradeAccount.id,
-      },
-    });
+    await prisma.$transaction([
+
+      prisma.commission.deleteMany({
+        where: {
+          tradeAccountId:
+            tradeAccount.id,
+        },
+      }),
+
+      prisma.referral.deleteMany({
+        where: {
+          tradeAccountId:
+            tradeAccount.id,
+        },
+      }),
+
+      prisma.tradeAccount.delete({
+        where: {
+          id: tradeAccount.id,
+        },
+      }),
+
+    ]);
 
     console.log(
       "TRADE ACCOUNT DELETED:",
