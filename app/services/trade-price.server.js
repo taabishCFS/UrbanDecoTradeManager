@@ -291,7 +291,14 @@ export async function createTradePriceDiscount({
           all: true,
         },
       },
-
+      // =========================================================
+    // ALLOW TRADE PRICE TO COMBINE WITH OTHER DISCOUNT CLASSES
+    // =========================================================
+          combinesWith: {
+      productDiscounts: true,
+      orderDiscounts: true,
+      shippingDiscounts: true,
+    },
       context: {
         customers: {
           add: [
@@ -611,7 +618,15 @@ export async function updateTradePriceDiscount({
           all: true,
         },
       },
+// =========================================================
+    // ALLOW TRADE PRICE TO COMBINE WITH OTHER DISCOUNT CLASSES
+    // =========================================================
 
+    combinesWith: {
+      productDiscounts: true,
+      orderDiscounts: true,
+      shippingDiscounts: true,
+    },
       context: {
         customers: {
           add: [
