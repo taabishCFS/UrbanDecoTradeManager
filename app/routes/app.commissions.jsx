@@ -292,6 +292,19 @@ export const loader = async ({ request }) => {
 
 
 
+  /*
+
+   * ------------------------------------------------------------
+     TOTAL ORDERS (ALL STATUSES COMBINED)
+   * ------------------------------------------------------------
+   */
+
+  let totalCount = 0;
+
+  let totalAmount = 0;
+
+
+
   for (
 
     const commission of summaryRows
@@ -305,6 +318,12 @@ export const loader = async ({ request }) => {
         commission.commissionAmount
 
       ) || 0;
+
+
+
+    totalCount++;
+
+    totalAmount += amount;
 
 
 
@@ -649,6 +668,20 @@ export const loader = async ({ request }) => {
 
 
     summary: {
+
+      totalCount,
+
+
+
+      totalAmount:
+
+        Number(
+
+          totalAmount.toFixed(2)
+
+        ),
+
+
 
       pendingAmount:
 
@@ -1641,6 +1674,40 @@ export default function CommissionLedger() {
 
 
       <div className="summary-grid">
+
+
+
+        <div className="summary-card">
+
+          <div className="summary-label">
+
+            Total Orders
+
+          </div>
+
+
+
+          <div className="summary-value">
+
+            {summary.totalCount}
+
+          </div>
+
+
+
+          <div className="summary-count">
+
+            {money(
+
+              summary.totalAmount
+
+            )} total commission
+
+          </div>
+
+        </div>
+
+
 
 
 
@@ -2724,7 +2791,7 @@ export default function CommissionLedger() {
 
           grid-template-columns:
 
-            repeat(4, 1fr);
+            repeat(5, 1fr);
 
           gap: 16px;
 
@@ -3097,6 +3164,28 @@ export default function CommissionLedger() {
           margin: 0;
 
           color: #6b7280;
+
+        }
+
+
+
+        @media (
+
+          max-width: 1100px
+
+        ) {
+
+
+
+          .summary-grid {
+
+            grid-template-columns:
+
+              repeat(3, 1fr);
+
+          }
+
+
 
         }
 
