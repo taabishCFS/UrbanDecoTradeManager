@@ -1,4 +1,5 @@
 import prisma from "../db.server";
+import { authenticate } from "../shopify.server";
 
 console.log(
  "🔥 API TRADE DASHBOARD HIT"
@@ -6,7 +7,8 @@ console.log(
 export async function loader({ request }) {
 
   try {
-
+const { admin } =
+      await authenticate.admin(request);
     const url = new URL(request.url);
 
 
@@ -177,6 +179,80 @@ return Response.json({
       });
 
 
+/*
+=====================================
+GET CUSTOMER ORDERS
+=====================================
+*/
+
+const ordersResponse =
+  await admin.graphql(
+    `#graphql
+      query getCustomerOrders(
+        $id: ID!
+        $first: Int!
+      ) {
+        customer(id: $id) {
+          orders(
+            first: $first
+          ) {
+            edges {
+              node {
+                id
+                name
+              }
+            }
+          }
+        }
+      }
+    `,
+    {
+      variables: {
+        id:
+          tradeAccount.shopifyCustomerId.startsWith(
+            "gid://"
+          )
+            ? tradeAccount.shopifyCustomerId
+            : `gid://shopify/Customer/${tradeAccount.shopifyCustomerId}`,
+
+        first: 250,
+      },
+    }
+  );
+
+
+const ordersResult =
+  await ordersResponse.json();
+
+
+console.log(
+  "SHOPIFY CUSTOMER ORDERS RESPONSE:"
+);
+
+console.log(
+  JSON.stringify(
+    ordersResult,
+    null,
+    2
+  )
+);
+
+
+/*
+=====================================
+TOTAL CUSTOMER ORDERS
+=====================================
+*/
+
+const totalOrders =
+  ordersResult
+    ?.data
+    ?.customer
+    ?.orders
+    ?.edges
+    ?.length || 0;
+
+
 
     /*
     =====================================
@@ -185,8 +261,8 @@ return Response.json({
     */
 
 
-    let totalOrders =
-      commissions.length;
+    // let totalOrders =
+    //   commissions.length;
 
 
     let totalCommission =
