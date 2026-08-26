@@ -43,8 +43,9 @@ model TradeApplication {
   email     String
   phone     String
 
-  businessName String
-  businessType String
+  businessName      String
+  businessType      String
+  businessTypeOther String?
 
   website   String?
   instagram String?

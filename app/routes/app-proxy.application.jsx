@@ -24,6 +24,8 @@ const application = {
   businessType:
     formData.get("business_type")?.toString().trim() || "",
 
+  businessTypeOther : formData.get("business_type_other")?.toString().trim() || null,
+
   website:
     formData.get("website")?.toString().trim() || null,
 
