@@ -2091,13 +2091,16 @@ export default function TradeApplicationDetail() {
               application.businessName
             }
           />
+<Detail
+  label="Business Type"
+  value={
+    application.businessType === "Other"
+      ? application.businessTypeOther
+      : application.businessType
+  }
+/>
 
-          <Detail
-            label="Business Type"
-            value={
-              application.businessType
-            }
-          />
+        
 
           <Detail
             label="Company Registration Number"
