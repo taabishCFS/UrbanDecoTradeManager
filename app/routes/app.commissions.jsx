@@ -690,9 +690,21 @@ export default function CommissionLedger() {
                     {/* ACTION */}
                     <td>
 
-                      {/* PENDING → show Approve button, which expands to ref input */}
+                      {/*
+                       * PENDING
+                       *
+                       * If commission is £0.00 this is a trade-discount
+                       * order with no payable commission — show a label
+                       * instead of the approve workflow.
+                       *
+                       * Otherwise show the inline approve expand.
+                       */}
                       {commission.status === "PENDING" && (
-                        approvingId === commission.id ? (
+                        commission.commissionAmount === 0 ? (
+                          <span className="trade-pricing-label">
+                            Trade Pricing
+                          </span>
+                        ) : approvingId === commission.id ? (
                           <Form
                             method="post"
                             onSubmit={() => {
@@ -1038,6 +1050,19 @@ export default function CommissionLedger() {
         .cancel-button {
           background: #f3f4f6;
           color: #374151;
+        }
+
+        /* Trade pricing label — shown instead of Approve
+           when commission amount is £0.00 */
+
+        .trade-pricing-label {
+          display: inline-block;
+          font-size: 12px;
+          font-weight: 600;
+          color: #6b7280;
+          background: #f3f4f6;
+          padding: 5px 10px;
+          border-radius: 6px;
         }
 
         .completed-action {
