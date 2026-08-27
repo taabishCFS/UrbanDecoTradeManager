@@ -13,6 +13,11 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
 
+import {
+  sendTradeApprovalEmail,
+  sendTradeRejectionEmail,
+} from "../services/email.server";
+
 /**
  * ============================================================
  * NORMALISE PHONE NUMBER
@@ -1095,6 +1100,33 @@ if (actionType === "deleteCustomer") {
         "APPLICATION REJECTED:",
         rejectedApplication.id
       );
+      /* ============================================================
+   SEND REJECTION EMAIL
+============================================================ */
+
+try {
+
+  const emailResult =
+    await sendTradeRejectionEmail(
+      rejectedApplication,
+      rejectionReason
+    );
+
+  console.log(
+    "TRADE REJECTION EMAIL RESULT:",
+    emailResult
+  );
+
+} catch (emailError) {
+
+  console.error(
+    "TRADE REJECTION EMAIL FAILED:",
+    emailError
+  );
+
+}
+
+
 
       return Response.json({
         success: true,
@@ -1733,6 +1765,30 @@ if (actionType === "deleteCustomer") {
           "REFERRAL CODE:",
           referralCode
         );
+        /* ============================================================
+   SEND APPROVAL EMAIL
+============================================================ */
+
+try {
+
+  const emailResult =
+    await sendTradeApprovalEmail(
+      application
+    );
+
+  console.log(
+    "TRADE APPROVAL EMAIL RESULT:",
+    emailResult
+  );
+
+} catch (emailError) {
+
+  console.error(
+    "TRADE APPROVAL EMAIL FAILED:",
+    emailError
+  );
+
+}
 
         /**
          * ----------------------------------------------------
