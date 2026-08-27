@@ -57,7 +57,7 @@ export async function sendTradeApprovalEmail(
                   "
                 >
                   <img
-    src="https://cdn.shopify.com/s/files/1/0673/0734/0017/files/URBANDECO-1200X1200.jpg?v=1787744700"
+    src="https://cdn.shopify.com/s/files/1/0673/0734/0017/files/URBANDECO-1200X630_1.jpg?v=1787744194"
     alt="Urban Deco"
     width="180"
     style="
