@@ -101,8 +101,27 @@ export async function sendTradeApprovalEmail(
                     Urban Deco Trade Account has been approved.
                   </p>
                   <p>
-                      Our team will be in touch with you shortly to discuss the available pricing, trade discount and commission options, as well as any further details to help you get the most from your Urban Deco Trade Account.
+                     As an approved Urban Deco trade customer, you now have access to three flexible pricing options, designed to give you greater value and flexibility on your projects:
                       </p>
+                      <p>
+                      1. Trade Discount </br>Enjoy a flat percentage discount on your purchases, giving you straightforward trade pricing every time you order.
+                      </p>
+                      <p>
+                      2. Referral </br>Refer your clients to Urban Deco and earn commission on their purchases. It’s a simple way to turn your client recommendations into an additional reward.
+                      </p>
+                      <p>
+                      3. Flexible Project Reward </br>Share a total discount benefit your way. Choose how much of the available benefit you’d like to pass on to your client and how much you’d like to retain as your professional reward.
+                      </p>
+                      <p>
+                      3. Ready to choose your preferred option? </br>Get in touch with our team and we’ll be happy to discuss the options available to you and help you choose the right one for your business.
+                      </p>
+                      <p>
+                     📧 customerservice@urbandeco.co.uk
+                      </p>
+                      <p>
+                     📞 0116-296-2565
+                      </p>
+            
 
                   <p>
                     You can now access your trade account and
@@ -135,10 +154,7 @@ export async function sendTradeApprovalEmail(
                     our team and we will be happy to help.
                   </p>
 
-                  <p>
-                    If you have any questions, please contact
-                    our team and we will be happy to help.
-                  </p>
+              
 
                   <p
                     style="
