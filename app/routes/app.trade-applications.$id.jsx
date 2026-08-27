@@ -714,10 +714,50 @@ export async function loader({
     "TRADE ACCOUNT:",
     tradeAccount?.id || "NONE"
   );
+/**
+   * ----------------------------------------------------------
+   * Serialise Decimal fields
+   * ----------------------------------------------------------
+   *
+   * IMPORTANT:
+   *
+   * Prisma returns discountPercent / commissionPercent as
+   * Decimal instances, not plain numbers. React Router's
+   * loader data transport does not know how to serialise a
+   * Decimal instance - it walks its internal properties
+   * instead of calling toString() on it, so the page ends up
+   * doing Number(<mangled object>), which is NaN.
+   *
+   * Convert to plain numbers here, before the data leaves
+   * the loader.
+   * ----------------------------------------------------------
+   */
+  const formattedTradeAccount =
+    tradeAccount
+      ? {
+          ...tradeAccount,
+
+          discountPercent:
+            Number(
+              tradeAccount.discountPercent
+            ),
+
+          commissionPercent:
+            Number(
+              tradeAccount.commissionPercent
+            ),
+
+          allocationPercent:
+            Number(
+              tradeAccount.allocationPercent
+            ),
+        }
+      : null;
 
   return {
     application,
-    tradeAccount,
+     tradeAccount:
+      formattedTradeAccount,
   };
 }
 
@@ -2312,12 +2352,12 @@ export default function TradeApplicationDetail() {
 
           <Detail
             label="Discount"
-            value={`${Number(tradeAccount?.discountPercent ?? 0)}%`}
+            value={`${tradeAccount.discountPercent}%`}
           />
 
           <Detail
             label="Commission"
-            value={`${Number(tradeAccount?.commissionPercent ?? 0)}%`}
+            value={`${tradeAccount.commissionPercent}%`}
           />
 
           <Detail
