@@ -2312,12 +2312,12 @@ export default function TradeApplicationDetail() {
 
           <Detail
             label="Discount"
-           value={`${Number(tradeAccount.discountPercent)}%`}
+            value={`${Number(tradeAccount?.discountPercent ?? 0)}%`}
           />
 
           <Detail
             label="Commission"
-            value={`${Number(tradeAccount.commissionPercent)}%`}
+            value={`${Number(tradeAccount?.commissionPercent ?? 0)}%`}
           />
 
           <Detail
