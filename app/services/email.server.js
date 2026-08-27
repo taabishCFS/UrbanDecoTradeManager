@@ -100,6 +100,9 @@ export async function sendTradeApprovalEmail(
                     Great news! Your application for an
                     Urban Deco Trade Account has been approved.
                   </p>
+                  <p>
+                      Our team will be in touch with you shortly to discuss the available pricing, trade discount and commission options, as well as any further details to help you get the most from your Urban Deco Trade Account.
+                      </p>
 
                   <p>
                     You can now access your trade account and
@@ -127,6 +130,10 @@ export async function sendTradeApprovalEmail(
                       Visit Urban Deco
                     </a>
                   </div>
+                  <p>
+                    If you have any questions, please contact
+                    our team and we will be happy to help.
+                  </p>
 
                   <p>
                     If you have any questions, please contact
