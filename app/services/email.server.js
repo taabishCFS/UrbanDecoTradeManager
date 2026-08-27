@@ -121,8 +121,7 @@ export async function sendTradeApprovalEmail(
                       <p>
                       <strong>Ready to choose your preferred option? </strong></br>Get in touch with our team and we’ll be happy to discuss the options available to you and help you choose the right one for your business.
                       </p>
-                      <p>
-                     📧 <a href="https://www.urbandeco.co.uk/pages/book-a-call"
+                      <p><a href="https://www.urbandeco.co.uk/pages/book-a-call"
     style="
       display:inline-block;
       padding:14px 26px;
