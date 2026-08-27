@@ -122,15 +122,19 @@ export async function sendTradeApprovalEmail(
                       <strong>Ready to choose your preferred option? </strong></br>Get in touch with our team and we’ll be happy to discuss the options available to you and help you choose the right one for your business.
                       </p>
                       <p>
-                     📧 <a href="mailto:customerservice@urbandeco.co.uk">
-    customerservice@urbandeco.co.uk
+                     📧 <a href="https://www.urbandeco.co.uk/pages/book-a-call"
+    style="
+      display:inline-block;
+      padding:14px 26px;
+      background:#1a1a1a;
+      color:#ffffff;
+      text-decoration:none;
+      font-weight:600;
+      font-size:14px;
+    "
+  >
+    Book a Call with Our Team
   </a>
-                      </p>
-                      <p>
-                     📞 <a href="tel:+441162962565">
-    0116-296-2565
-  </a>
-                      </p>
             
 
                   <p>
