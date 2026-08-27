@@ -56,16 +56,19 @@ export async function sendTradeApprovalEmail(
                     border-bottom:1px solid #eeeeee;
                   "
                 >
-                  <h1
-                    style="
-                      margin:0;
-                      font-size:28px;
-                      font-weight:600;
-                    "
-                  >
-                    Urban Deco
-                  </h1>
-
+                  <img
+    src="https://cdn.shopify.com/s/files/1/0673/0734/0017/files/URBANDECO-1200X1200.jpg?v=1787744700"
+    alt="Urban Deco"
+    width="180"
+    style="
+      display:block;
+      width:180px;
+      max-width:100%;
+      height:auto;
+      margin:0 auto;
+      border:0;
+    "
+  />
                   <p
                     style="
                       margin:8px 0 0;
@@ -111,6 +114,9 @@ export async function sendTradeApprovalEmail(
                       </p>
                       <p>
                       <strong>3. Flexible Project Reward </strong></br>Share a total discount benefit your way. Choose how much of the available benefit you’d like to pass on to your client and how much you’d like to retain as your professional reward.
+                      </p>
+                      <p>
+                      <strong>Need a little more information before choosing your preferred option? </strong></br>Our team will be happy to explain how each pricing option works and help you find the right fit for your business.
                       </p>
                       <p>
                       <strong>Ready to choose your preferred option? </strong></br>Get in touch with our team and we’ll be happy to discuss the options available to you and help you choose the right one for your business.
