@@ -199,7 +199,7 @@ export async function createTradePriceDiscount({
    */
 
   const title =
-    `Trade Price - ${tradeAccount.businessName}`;
+    `Trade Price Discount - ${tradeAccount.businessName}`;
 
   /**
    * ==========================================================

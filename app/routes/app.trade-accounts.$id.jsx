@@ -1117,7 +1117,7 @@ export async function action({
             basicCodeDiscount: {
 
               title:
-                `Client Special - ${discountCode}`,
+                `Client Discount - ${discountCode}`,
 
               code:
                 discountCode,
