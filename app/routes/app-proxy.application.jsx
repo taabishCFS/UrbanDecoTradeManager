@@ -83,8 +83,6 @@ const application = {
   ["phone", "Phone"],
   ["businessName", "Business name"],
   ["businessType", "Business type"],
-  ["companyNumber", "Company registration number"],
-  ["vatNumber", "VAT number"],
   ["address", "Address"],
   ["city", "City"],
   ["postcode", "Postcode"],
