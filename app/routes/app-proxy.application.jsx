@@ -1,5 +1,8 @@
 import prisma from "../db.server";
-import { sendNewApplicationTeamEmail } from "../services/email.server";
+import {
+  sendNewApplicationTeamEmail,
+  sendApplicationReceivedEmail,
+} from "../services/email.server";
 
 export async function action({ request }) {
   try {
@@ -164,6 +167,16 @@ try {
   });
 } catch (emailError) {
   console.error("TEAM ALERT EMAIL FAILED:", emailError);
+}
+
+// Confirm receipt to the applicant.
+// A failed email must never block the application itself.
+try {
+  await sendApplicationReceivedEmail(savedApplication, {
+    reference,
+  });
+} catch (emailError) {
+  console.error("APPLICATION RECEIVED EMAIL FAILED:", emailError);
 }
 
 return Response.json({

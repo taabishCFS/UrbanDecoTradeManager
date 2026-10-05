@@ -589,3 +589,111 @@ export async function sendNewApplicationTeamEmail(
     return { success: false, error };
   }
 }
+
+/* ============================================================
+   SEND "APPLICATION RECEIVED" EMAIL TO THE APPLICANT
+============================================================ */
+
+export async function sendApplicationReceivedEmail(application) {
+  if (!application?.email) {
+    console.log("RECEIVED EMAIL SKIPPED: NO APPLICANT EMAIL.");
+
+    return { success: false, skipped: true };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: EMAIL_FROM,
+      to: application.email,
+      subject: "We’ve Received Your Urban Deco Trade Application",
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial, Helvetica, sans-serif;color:#222222;">
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;">
+
+              <div style="padding:35px 30px;text-align:center;border-bottom:1px solid #eeeeee;">
+                <img
+                  src="https://cdn.shopify.com/s/files/1/0673/0734/0017/files/URBANDECO-1200X630_1.jpg?v=1787744194"
+                  alt="Urban Deco"
+                  width="180"
+                  style="display:block;width:180px;max-width:100%;height:auto;margin:0 auto;border:0;"
+                />
+                <p style="margin:8px 0 0;color:#777777;font-size:12px;letter-spacing:2px;text-transform:uppercase;">
+                  Trade Account
+                </p>
+              </div>
+
+              <div style="padding:40px 30px;line-height:1.7;font-size:15px;">
+
+                <h2 style="margin:0 0 22px;font-size:24px;font-weight:600;line-height:1.3;">
+                  We’ve Received Your Application
+                </h2>
+
+                <p>Hi ${escapeHtml(application.firstName)},</p>
+
+                <p>
+                  Thank you for applying for an Urban Deco Trade Account.
+                  We’re delighted that you’re considering Urban Deco
+                  for your projects.
+                </p>
+
+                <p>
+                  Your application has been received and is now awaiting
+                  review by our trade team. We’ll be in touch by email
+                  once the review is complete. If we need any further
+                  information, we’ll contact you directly.
+                </p>
+
+                <p>
+                  In the meantime, we invite you to explore our collection
+                  and discover pieces for your upcoming projects.
+                </p>
+
+                <div style="text-align:center;margin:35px 0;">
+                  <a
+                    href="https://www.urbandeco.co.uk/"
+                    style="display:inline-block;padding:14px 30px;background:#1a1a1a;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;letter-spacing:1px;"
+                  >
+                    Explore Urban Deco
+                  </a>
+                </div>
+
+                <p>
+                  If you have any questions about your application, simply
+                  reply to this email. Our team will be happy to help.
+                </p>
+
+                <p style="margin-bottom:0;">
+                  Kind regards,<br />
+                  <strong>Urban Deco Trade Team</strong>
+                </p>
+
+              </div>
+
+              <div style="padding:20px 30px;background:#f5f5f5;color:#777777;font-size:12px;text-align:center;">
+                © ${new Date().getFullYear()} Urban Deco. All rights reserved.
+              </div>
+
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error("RESEND RECEIVED EMAIL ERROR:", error);
+
+      return { success: false, error };
+    }
+
+    console.log("APPLICATION RECEIVED EMAIL SENT:", application.email);
+    console.log("RESEND EMAIL ID:", data?.id);
+
+    return { success: true, emailId: data?.id };
+  } catch (error) {
+    console.error("RECEIVED EMAIL SEND ERROR:", error);
+
+    return { success: false, error };
+  }
+}
