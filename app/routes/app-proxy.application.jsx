@@ -1,4 +1,5 @@
 import prisma from "../db.server";
+import { sendNewApplicationTeamEmail } from "../services/email.server";
 
 export async function action({ request }) {
   try {
@@ -153,6 +154,17 @@ const application = {
   savedApplication.id
     .slice(-6)
     .toUpperCase();
+
+// Alert the team (addresses come from TRADE_NOTIFY_EMAILS).
+// A failed email must never block the application itself.
+try {
+  await sendNewApplicationTeamEmail(savedApplication, {
+    reference,
+    shop: new URL(request.url).searchParams.get("shop"),
+  });
+} catch (emailError) {
+  console.error("TEAM ALERT EMAIL FAILED:", emailError);
+}
 
 return Response.json({
   success: true,

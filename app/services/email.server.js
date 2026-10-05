@@ -440,3 +440,152 @@ export async function sendTradeRejectionEmail(
     };
   }
 }
+
+/* ============================================================
+   SEND NEW TRADE APPLICATION ALERT TO THE TEAM
+   ------------------------------------------------------------
+   Recipients come from the TRADE_NOTIFY_EMAILS setting,
+   e.g.  one@example.com, two@example.com, three@example.com
+============================================================ */
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getTeamNotificationEmails() {
+  return (process.env.TRADE_NOTIFY_EMAILS || "")
+    .split(/[,;\s]+/)
+    .map((email) => email.trim().toLowerCase())
+    .filter((email) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))
+    .filter((email, index, list) => list.indexOf(email) === index);
+}
+
+export async function sendNewApplicationTeamEmail(
+  application,
+  { reference, shop } = {}
+) {
+  const recipients = getTeamNotificationEmails();
+
+  if (!recipients.length) {
+    console.log(
+      "TEAM ALERT EMAIL SKIPPED: TRADE_NOTIFY_EMAILS IS NOT SET."
+    );
+
+    return { success: false, skipped: true };
+  }
+
+  try {
+    const businessType =
+      application.businessType === "Other" &&
+      application.businessTypeOther
+        ? `Other - ${application.businessTypeOther}`
+        : [application.businessType, application.businessTypeOther]
+            .filter(Boolean)
+            .join(" - ");
+
+    const fullAddress = [
+      application.address,
+      application.city,
+      application.county,
+      application.postcode,
+      application.country,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    const rows = [
+      ["Reference", reference],
+      ["Name", `${application.firstName} ${application.lastName}`],
+      ["Email", application.email],
+      ["Phone", application.phone],
+      ["Business name", application.businessName],
+      ["Business type", businessType],
+      ["Website", application.website],
+      ["Instagram", application.instagram],
+      ["Company number", application.companyNumber],
+      ["VAT number", application.vatNumber],
+      ["Years trading", application.yearsTrading],
+      ["Typical project value", application.typicalProjectValue],
+      ["Portfolio", application.portfolioUrl],
+      ["Project information", application.projectInformation],
+      ["Address", fullAddress],
+    ]
+      .filter(([, value]) => value)
+      .map(
+        ([label, value]) => `
+          <tr>
+            <td style="padding:10px 12px;border-bottom:1px solid #eeeeee;color:#777777;font-size:13px;width:38%;vertical-align:top;">${escapeHtml(label)}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #eeeeee;font-size:14px;vertical-align:top;">${escapeHtml(value).replace(/\n/g, "<br />")}</td>
+          </tr>`
+      )
+      .join("");
+
+    const reviewUrl =
+      shop && process.env.SHOPIFY_API_KEY && application.id
+        ? `https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/trade-applications/${application.id}`
+        : null;
+
+    const reviewButton = reviewUrl
+      ? `
+        <div style="text-align:center;margin:30px 0 10px;">
+          <a href="${reviewUrl}" style="display:inline-block;padding:14px 26px;background:#1a1a1a;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">
+            Review Application
+          </a>
+        </div>`
+      : "";
+
+    const { data, error } = await resend.emails.send({
+      from: EMAIL_FROM,
+      to: recipients,
+      replyTo: application.email,
+      subject: `New Trade Application - ${application.businessName}${reference ? ` (${reference})` : ""}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial, Helvetica, sans-serif;color:#222222;">
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;">
+              <div style="padding:30px;text-align:center;border-bottom:1px solid #eeeeee;">
+                <h1 style="margin:0;font-size:24px;font-weight:600;">Urban Deco</h1>
+                <p style="margin:8px 0 0;color:#777777;font-size:14px;">Trade Manager</p>
+              </div>
+              <div style="padding:30px;">
+                <h2 style="margin-top:0;font-size:22px;">New Trade Application Received</h2>
+                <p>
+                  <strong>${escapeHtml(application.businessName)}</strong>
+                  has applied for a trade account and is waiting for review.
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border-top:1px solid #eeeeee;margin-top:20px;">
+                  ${rows}
+                </table>
+                ${reviewButton}
+                <p style="color:#777777;font-size:12px;margin-bottom:0;">
+                  Replying to this email will reply directly to the applicant.
+                </p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error("RESEND TEAM ALERT EMAIL ERROR:", error);
+
+      return { success: false, error };
+    }
+
+    console.log("TEAM ALERT EMAIL SENT TO:", recipients.join(", "));
+    console.log("RESEND EMAIL ID:", data?.id);
+
+    return { success: true, emailId: data?.id };
+  } catch (error) {
+    console.error("TEAM ALERT EMAIL SEND ERROR:", error);
+
+    return { success: false, error };
+  }
+}
