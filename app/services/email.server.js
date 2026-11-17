@@ -69,6 +69,63 @@ export async function sendAndLog({
 }
 
 /* ============================================================
+   BRANDED LAYOUT FOR MERCHANT REPLIES
+
+   Same logo header, "Trade Account" label, spacing, sign-off and
+   footer as the automated "application received" email. The
+   merchant's text is escaped; blank lines start a new paragraph and
+   single line breaks stay as line breaks.
+============================================================ */
+
+function renderBrandedReplyHtml(body) {
+  const paragraphs = escapeHtml(body)
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map(
+      (block) =>
+        `<p style="margin:0 0 16px;">${block.replace(/\n/g, "<br />")}</p>`
+    )
+    .join("\n");
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial, Helvetica, sans-serif;color:#222222;">
+        <div style="max-width:600px;margin:0 auto;background:#ffffff;">
+
+          <div style="padding:35px 30px;text-align:center;border-bottom:1px solid #eeeeee;">
+            <img
+              src="https://cdn.shopify.com/s/files/1/0673/0734/0017/files/URBANDECO-1200X630_1.jpg?v=1787744194"
+              alt="Urban Deco"
+              width="180"
+              style="display:block;width:180px;max-width:100%;height:auto;margin:0 auto;border:0;"
+            />
+            <p style="margin:8px 0 0;color:#777777;font-size:12px;letter-spacing:2px;text-transform:uppercase;">
+              Trade Account
+            </p>
+          </div>
+
+          <div style="padding:40px 30px;line-height:1.7;font-size:15px;">
+            ${paragraphs}
+
+            <p style="margin:24px 0 0;">
+              Kind regards,<br />
+              <strong>Urban Deco Trade Team</strong>
+            </p>
+          </div>
+
+          <div style="padding:20px 30px;background:#f5f5f5;color:#777777;font-size:12px;text-align:center;">
+            © ${new Date().getFullYear()} Urban Deco. All rights reserved.
+          </div>
+
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+/* ============================================================
    SEND A MERCHANT REPLY FROM THE EMAILS PAGE
 ============================================================ */
 
@@ -81,20 +138,7 @@ export async function sendTradeReply({ application, subject, body }) {
       kind: "MANUAL_REPLY",
       subject: finalSubject,
       bodyText: body,
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial, Helvetica, sans-serif;color:#222222;">
-            <div style="max-width:600px;margin:0 auto;background:#ffffff;padding:30px;line-height:1.7;font-size:15px;">
-              <p style="margin:0;">${escapeHtml(body).replace(/\n/g, "<br />")}</p>
-              <p style="margin:30px 0 0;">
-                Kind regards,<br />
-                <strong>Urban Deco Trade Team</strong>
-              </p>
-            </div>
-          </body>
-        </html>
-      `,
+      html: renderBrandedReplyHtml(body),
     });
 
     if (error) {

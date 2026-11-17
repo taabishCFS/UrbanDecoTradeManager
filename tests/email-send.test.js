@@ -102,6 +102,31 @@ describe("outbound email", () => {
     expect(result.success).toBe(true);
   });
 
+  test("sendTradeReply uses the branded layout with one paragraph per blank-line block", async () => {
+    await sendTradeReply({
+      application,
+      subject: "Hello",
+      body: "First para\nsecond line\n\nSecond para",
+    });
+
+    const html = send.mock.calls[0][0].html;
+
+    // Same header, label, sign-off and footer as the automated emails.
+    expect(html).toContain(
+      "https://cdn.shopify.com/s/files/1/0673/0734/0017/files/URBANDECO-1200X630_1.jpg?v=1787744194"
+    );
+    expect(html).toContain("Trade Account");
+    expect(html).toContain("Kind regards,");
+    expect(html).toContain("Urban Deco Trade Team");
+    expect(html).toContain(`© ${new Date().getFullYear()} Urban Deco. All rights reserved.`);
+    expect(html).toContain("background:#f5f5f5");
+
+    // Paragraphs split on blank lines, single newlines become line breaks.
+    expect(html.match(/<p style="margin:0 0 16px;">/g)).toHaveLength(2);
+    expect(html).toContain("First para<br />second line");
+    expect(html).toContain("Second para");
+  });
+
   test("sendTradeReply reports failure when Resend errors", async () => {
     send.mockResolvedValue({ data: null, error: { message: "bad" } });
 

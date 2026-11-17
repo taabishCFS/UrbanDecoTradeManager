@@ -58,6 +58,8 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^4.6.2",
     "graphql-config": "^5.1.1",
+    "imapflow": "^2.12.1",
+    "mailparser": "^3.14.5",
     "prettier": "^3.6.2",
     "typescript": "^5.9.3",
     "vite": "^6.3.6",
