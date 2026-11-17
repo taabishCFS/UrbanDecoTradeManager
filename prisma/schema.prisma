@@ -78,6 +78,49 @@ model TradeApplication {
   status String @default("PENDING")
 
   tradeAccount TradeAccount?
+
+  emailMessages EmailMessage[]
+}
+
+// ============================================================
+// EMAIL MESSAGE
+// ============================================================
+//
+// Every applicant-facing email, in both directions.
+// applicationId is null for inbound mail whose sender could not
+// be matched to an application ("unmatched").
+// ============================================================
+
+model EmailMessage {
+  id String @id @default(cuid())
+
+  applicationId String?
+
+  direction EmailDirection
+
+  // APPLICATION_RECEIVED | APPROVAL | REJECTION | MANUAL_REPLY | APPLICANT_REPLY
+  kind String
+
+  fromEmail String
+  toEmail   String
+  subject   String
+  bodyText  String
+
+  providerMessageId String @unique
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  application TradeApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId])
+  @@index([createdAt])
+  @@index([readAt])
+}
+
+enum EmailDirection {
+  OUTBOUND
+  INBOUND
 }
 
 // ============================================================

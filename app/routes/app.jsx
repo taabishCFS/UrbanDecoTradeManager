@@ -24,6 +24,10 @@ export default function App() {
     Trade Applications
   </s-link>
 
+  <s-link href="/app/emails">
+    Emails
+  </s-link>
+
   <s-link href="/app/trade-accounts">
     Trade Accounts
   </s-link>

@@ -1,10 +1,171 @@
 import { Resend } from "resend";
 
+import { htmlToText, parseEmailAddress, replySubject } from "./email-text.server";
+import { logEmail } from "./email-log.server";
+
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const EMAIL_FROM =
   process.env.EMAIL_FROM ||
   "Urban Deco Trade <trade@urbandeco.co.uk>";
+
+/* ============================================================
+   REPLY-TO / COPY ADDRESSES
+
+   EMAIL_REPLY_TO is the Resend inbound address so applicant
+   replies reach the app. Falls back to the sending address.
+   REPLY_COPY_TO is where a copy of each applicant reply is sent
+   (default: the sending address). Read at call time.
+============================================================ */
+
+function getFromAddress() {
+  return parseEmailAddress(EMAIL_FROM);
+}
+
+function getReplyToAddress() {
+  return process.env.EMAIL_REPLY_TO?.trim() || getFromAddress();
+}
+
+function getReplyCopyAddress() {
+  return process.env.REPLY_COPY_TO?.trim() || getFromAddress();
+}
+
+/* ============================================================
+   SEND AN APPLICANT-FACING EMAIL AND LOG IT
+
+   Same return shape as resend.emails.send: { data, error }.
+   A logging failure never fails the send.
+============================================================ */
+
+export async function sendAndLog({
+  application,
+  kind,
+  subject,
+  html,
+  bodyText,
+}) {
+  const result = await resend.emails.send({
+    from: EMAIL_FROM,
+    to: application.email,
+    replyTo: getReplyToAddress(),
+    subject,
+    html,
+  });
+
+  if (!result.error && result.data?.id) {
+    await logEmail({
+      applicationId: application.id ?? null,
+      direction: "OUTBOUND",
+      kind,
+      fromEmail: getFromAddress(),
+      toEmail: application.email,
+      subject,
+      bodyText: bodyText ?? htmlToText(html),
+      providerMessageId: result.data.id,
+    });
+  }
+
+  return result;
+}
+
+/* ============================================================
+   SEND A MERCHANT REPLY FROM THE EMAILS PAGE
+============================================================ */
+
+export async function sendTradeReply({ application, subject, body }) {
+  const finalSubject = replySubject(subject);
+
+  try {
+    const { error } = await sendAndLog({
+      application,
+      kind: "MANUAL_REPLY",
+      subject: finalSubject,
+      bodyText: body,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial, Helvetica, sans-serif;color:#222222;">
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;padding:30px;line-height:1.7;font-size:15px;">
+              <p style="margin:0;">${escapeHtml(body).replace(/\n/g, "<br />")}</p>
+              <p style="margin:30px 0 0;">
+                Kind regards,<br />
+                <strong>Urban Deco Trade Team</strong>
+              </p>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error("TRADE REPLY EMAIL ERROR:", error);
+
+      return { success: false, error };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("TRADE REPLY EMAIL SEND ERROR:", error);
+
+    return { success: false, error };
+  }
+}
+
+/* ============================================================
+   SEND A COPY OF AN APPLICANT REPLY TO THE TEAM MAILBOX
+
+   Goes to REPLY_COPY_TO (never the inbound address, so no loop)
+   with the applicant as reply-to. Not logged.
+============================================================ */
+
+export async function sendReplyCopy({
+  application,
+  subject,
+  body,
+  threadUrl,
+}) {
+  try {
+    const { error } = await resend.emails.send({
+      from: EMAIL_FROM,
+      to: getReplyCopyAddress(),
+      replyTo: application.email,
+      subject: `Reply from ${application.businessName}: ${subject}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial, Helvetica, sans-serif;color:#222222;">
+            <div style="max-width:600px;margin:0 auto;background:#ffffff;padding:30px;line-height:1.7;font-size:15px;">
+              <p style="margin:0 0 6px;color:#777777;font-size:13px;">
+                ${escapeHtml(application.businessName)} &middot; ${escapeHtml(application.email)}
+              </p>
+              <p style="margin:0;">${escapeHtml(body).replace(/\n/g, "<br />")}</p>
+              ${
+                threadUrl
+                  ? `<p style="margin:30px 0 0;"><a href="${escapeHtml(threadUrl)}">Open this conversation in the app</a></p>`
+                  : ""
+              }
+              <p style="margin:24px 0 0;color:#777777;font-size:12px;">
+                Replying to this email goes directly to the applicant.
+              </p>
+            </div>
+          </body>
+        </html>
+      `,
+    });
+
+    if (error) {
+      console.error("REPLY COPY EMAIL ERROR:", error);
+
+      return { success: false, error };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("REPLY COPY EMAIL SEND ERROR:", error);
+
+    return { success: false, error };
+  }
+}
 
 /* ============================================================
    SEND TRADE APPROVAL EMAIL
@@ -23,9 +184,9 @@ export async function sendTradeApprovalEmail(
 
   try {
     const { data, error } =
-      await resend.emails.send({
-        from: EMAIL_FROM,
-        to: application.email,
+      await sendAndLog({
+        application,
+        kind: "APPROVAL",
         subject:
           "Your Urban Deco Trade Account Has Been Approved",
         html: `
@@ -278,9 +439,9 @@ export async function sendTradeRejectionEmail(
         : "";
 
     const { data, error } =
-      await resend.emails.send({
-        from: EMAIL_FROM,
-        to: application.email,
+      await sendAndLog({
+        application,
+        kind: "REJECTION",
         subject:
           "Update on Your Urban Deco Trade Account Application",
         html: `
@@ -602,9 +763,9 @@ export async function sendApplicationReceivedEmail(application) {
   }
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: EMAIL_FROM,
-      to: application.email,
+    const { data, error } = await sendAndLog({
+      application,
+      kind: "APPLICATION_RECEIVED",
       subject: "We’ve Received Your Urban Deco Trade Application",
       html: `
         <!DOCTYPE html>

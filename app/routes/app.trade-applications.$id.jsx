@@ -2058,6 +2058,13 @@ export default function TradeApplicationDetail() {
             <Link style={backStyle}  to="/app/trade-applications">
               ← Back to Trade Applications
             </Link >
+            {" "}
+            <Link
+              style={backStyle}
+              to={`/app/emails/${application.id}`}
+            >
+              Email trail
+            </Link>
           </div>
         <div>
           <h1 style={titleStyle}>
