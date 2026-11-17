@@ -26,6 +26,29 @@ describe("cleanEmailReply", () => {
     expect(cleanEmailReply(body)).toBe("See attached portfolio link");
   });
 
+  test("removes Gmail's wrapped attribution line (wrote: on the next line)", () => {
+    const body =
+      "Thank you for your response\n\nOn Tue, 17 Nov 2026 at 15:13, Urban Deco Trade <trade@urbandeco.co.uk>\nwrote:\n\n> quoted";
+    expect(cleanEmailReply(body)).toBe("Thank you for your response");
+  });
+
+  test("removes a wrapped attribution that splits the address across lines", () => {
+    const body =
+      "Yes please\n\nOn Tue, 17 Nov 2026 at 15:13, Urban Deco Trade <\ntrade@urbandeco.co.uk> wrote:\n> quoted";
+    expect(cleanEmailReply(body)).toBe("Yes please");
+  });
+
+  test("a fully quoted reply with a wrapped attribution is '(no new text)'", () => {
+    const body =
+      "On Tue, 17 Nov 2026 at 15:13, Urban Deco Trade <trade@urbandeco.co.uk>\nwrote:\n> quoted";
+    expect(cleanEmailReply(body)).toBe("(no new text)");
+  });
+
+  test("keeps text when 'wrote:' appears on a later, unrelated line", () => {
+    const body = "On the brief we agreed\nAda wrote: nothing\nthen more text";
+    expect(cleanEmailReply(body)).toBe(body);
+  });
+
   test("keeps text after a line that merely contains 'wrote:' mid-sentence", () => {
     const body =
       "Intro\non the brief Ada wrote: we need X\nMore details follow";

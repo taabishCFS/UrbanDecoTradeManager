@@ -13,10 +13,12 @@ export function cleanEmailReply(body) {
 
   let text = String(body).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
-  // "On ... wrote:" attribution line (the whole line, so a sentence that
-  // merely contains "wrote:" is kept) and everything after it
+  // "On ... wrote:" attribution (the whole line, so a sentence that merely
+  // contains "wrote:" is kept) and everything after it. Gmail often wraps
+  // it, so "wrote:" may sit on the next line, optionally after the end of
+  // the sender's address ("...<trade@x.com>" / "trade@x.com> wrote:").
   text = text.replace(
-    /(^|\n)[ \t]*On[ \t][^\n]*wrote:[ \t]*(?:\n[\s\S]*)?$/i,
+    /(^|\n)[ \t]*On[ \t](?:[^\n]*wrote:|[^\n]*\n[ \t]*(?:[^\n]*>[ \t]*)?wrote:)[ \t]*(?:\n[\s\S]*)?$/i,
     "$1"
   );
 
