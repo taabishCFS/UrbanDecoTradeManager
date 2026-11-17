@@ -209,6 +209,13 @@ export default function TradeApplications() {
                       View
                     </Link>
 
+                    <Link
+                      to={`/app/emails/${application.id}`}
+                      style={{ ...viewButtonStyle, marginLeft: "8px" }}
+                    >
+                      Email
+                    </Link>
+
                     <Form
                       method="post"
                       style={{ display: "inline", marginLeft: "8px" }}

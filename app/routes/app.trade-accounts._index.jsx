@@ -17,6 +17,7 @@ export async function loader({ request }) {
   return {
     tradeAccounts: tradeAccounts.map((account) => ({
       id: account.id,
+      applicationId: account.applicationId,
       email: account.email,
       businessName: account.businessName,
       referralCode: account.referralCode,
@@ -196,6 +197,13 @@ export default function TradeAccountsList() {
                       style={viewButtonStyle}
                     >
                       View
+                    </Link>
+
+                    <Link
+                      to={`/app/emails/${account.applicationId}`}
+                      style={{ ...viewButtonStyle, marginLeft: "8px" }}
+                    >
+                      Email
                     </Link>
 
                   </td>
