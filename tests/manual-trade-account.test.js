@@ -29,7 +29,7 @@ const validInput = {
   lastName: "Lovelace",
   email: " Ada@Example.com ",
   businessName: "Analytical Interiors",
-  phone: "",
+  phone: "07123 456789",
   website: "",
   notes: "Met at trade show",
   approveNow: false,
@@ -69,10 +69,19 @@ describe("validateManualTradeAccount", () => {
     expect(values.firstName).toBe("Ada");
   });
 
-  test("validate: phone only required/validated when approveNow", () => {
-    const bad = { ...validInput, phone: "123" };
-    expect(validateManualTradeAccount({ ...bad, approveNow: false }).errors).not.toHaveProperty("phone");
-    expect(validateManualTradeAccount({ ...bad, approveNow: true }).errors).toHaveProperty("phone");
+  test("validate: blank phone is an error even when approveNow is false", () => {
+    const { errors } = validateManualTradeAccount({ ...validInput, phone: "", approveNow: false });
+    expect(errors).toHaveProperty("phone");
+  });
+
+  test("validate: invalid phone is an error even when approveNow is false", () => {
+    const { errors } = validateManualTradeAccount({ ...validInput, phone: "123", approveNow: false });
+    expect(errors).toHaveProperty("phone");
+  });
+
+  test("validate: valid phone passes with approveNow false and true", () => {
+    expect(validateManualTradeAccount({ ...validInput, approveNow: false }).errors).not.toHaveProperty("phone");
+    expect(validateManualTradeAccount({ ...validInput, approveNow: true }).errors).not.toHaveProperty("phone");
   });
 });
 
@@ -98,7 +107,7 @@ describe("createManualTradeAccount", () => {
       source: "MANUAL",
       status: "PENDING",
       termsAccepted: false,
-      phone: "",
+      phone: "07123 456789",
       address: "",
       projectInformation: "Met at trade show",
       email: "ada@example.com",
@@ -110,7 +119,7 @@ describe("createManualTradeAccount", () => {
 
   test("create: approveNow=true calls approveApplication with the created application", async () => {
     prisma.tradeApplication.findFirst.mockResolvedValue(null);
-    approveApplication.mockResolvedValue({ status: 200, body: {} });
+    approveApplication.mockResolvedValue({ status: 200, body: { tradeAccountId: "ta_1" } });
     const result = await createManualTradeAccount({
       admin,
       input: { ...validInput, phone: "07123 456789", approveNow: true },
@@ -119,7 +128,7 @@ describe("createManualTradeAccount", () => {
       admin,
       application: expect.objectContaining({ id: "app_1" }),
     });
-    expect(result).toMatchObject({ ok: true, approved: true });
+    expect(result).toMatchObject({ ok: true, approved: true, tradeAccountId: "ta_1" });
   });
 
   test("create: approval failure keeps application PENDING", async () => {
@@ -132,6 +141,20 @@ describe("createManualTradeAccount", () => {
     expect(result.ok).toBe(false);
     expect(result.application).toBeDefined();
     expect(result.message).toContain("boom");
+    expect(prisma.tradeApplication.delete).not.toHaveBeenCalled();
+  });
+
+  test("create: approveApplication throwing keeps application PENDING", async () => {
+    prisma.tradeApplication.findFirst.mockResolvedValue(null);
+    approveApplication.mockRejectedValue(new Error("shopify down"));
+    const result = await createManualTradeAccount({
+      admin,
+      input: { ...validInput, approveNow: true },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.application).toBeDefined();
+    expect(result.message).toContain("Application saved as pending, but approval failed:");
+    expect(result.message).toContain("shopify down");
     expect(prisma.tradeApplication.delete).not.toHaveBeenCalled();
   });
 });

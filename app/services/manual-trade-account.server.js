@@ -37,8 +37,8 @@ export function validateManualTradeAccount(input = {}) {
   else if (!EMAIL_PATTERN.test(values.email))
     errors.email = "Enter a valid email address.";
   if (!values.businessName) errors.businessName = "Business name is required.";
-  if (approveNow && !normalisePhone(values.phone))
-    errors.phone = "A valid phone number is required to approve now.";
+  if (!normalisePhone(values.phone))
+    errors.phone = "A valid phone number is required.";
 
   return { errors, values };
 }
@@ -93,12 +93,22 @@ export async function createManualTradeAccount({ admin, input }) {
     };
   }
 
-  const result = await approveApplication({ admin, application });
+  let result;
+  try {
+    result = await approveApplication({ admin, application });
+  } catch (error) {
+    return {
+      ok: false,
+      application,
+      message: `Application saved as pending, but approval failed: ${error?.message ?? "unknown error"}`,
+    };
+  }
   if (result.status === 200) {
     return {
       ok: true,
       application,
       approved: true,
+      tradeAccountId: result.body?.tradeAccountId,
       message: "Trade account created and approved.",
     };
   }

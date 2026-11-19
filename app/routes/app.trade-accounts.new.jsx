@@ -43,7 +43,9 @@ export async function action({ request }) {
   if (result.ok) {
     return redirect(
       result.approved
-        ? "/app/trade-accounts"
+        ? result.tradeAccountId
+          ? `/app/trade-accounts/${result.tradeAccountId}`
+          : "/app/trade-accounts"
         : `/app/trade-applications/${result.application.id}`,
     );
   }
@@ -67,7 +69,7 @@ export async function action({ request }) {
 export default function NewTradeAccount() {
   const actionData = useActionData();
   const navigation = useNavigation();
-  const submitting = navigation.state === "submitting";
+  const submitting = navigation.state !== "idle";
 
   const errors = actionData?.errors || {};
   const values = actionData?.values || {};
@@ -135,7 +137,7 @@ export default function NewTradeAccount() {
             {field("firstName", "First name", { required: true })}
             {field("lastName", "Last name", { required: true })}
             {field("email", "Email", { required: true, type: "email" })}
-            {field("phone", "Phone", { type: "tel" })}
+            {field("phone", "Phone", { required: true, type: "tel" })}
           </div>
         </fieldset>
 
@@ -187,7 +189,6 @@ export default function NewTradeAccount() {
             />
             Approve and send welcome email now
           </label>
-          {errors.phone && <div style={errorTextStyle}>{errors.phone}</div>}
         </div>
 
         <div style={actionsStyle}>
