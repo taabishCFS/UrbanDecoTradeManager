@@ -164,6 +164,7 @@ describe("approve trade application (characterization)", () => {
     const updateArg = tx.tradeApplication.update.mock.calls[0][0];
     expect(updateArg.where).toEqual({ id: "app_1" });
     expect(updateArg.data.status).toBe("APPROVED");
+    expect(updateArg.data.approvedAt).toBeInstanceOf(Date);
 
     expect(sendTradeApprovalEmail).toHaveBeenCalledTimes(1);
     expect(sendTradeApprovalEmail).toHaveBeenCalledWith(baseApplication);
