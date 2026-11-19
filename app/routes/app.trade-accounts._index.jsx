@@ -28,6 +28,7 @@ export async function loader({ request }) {
         ? {
             firstName: account.application.firstName,
             lastName: account.application.lastName,
+            source: account.application.source,
           }
         : null,
     })),
@@ -53,9 +54,15 @@ export default function TradeAccountsList() {
           </p>
         </div>
 
-        <div style={countStyle}>
-          {tradeAccounts.length} account
-          {tradeAccounts.length !== 1 ? "s" : ""}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={countStyle}>
+            {tradeAccounts.length} account
+            {tradeAccounts.length !== 1 ? "s" : ""}
+          </div>
+
+          <Link to="/app/trade-accounts/new" style={viewButtonStyle}>
+            Add trade account
+          </Link>
         </div>
       </div>
 
@@ -144,6 +151,7 @@ export default function TradeAccountsList() {
 
                   <td style={tdStyle}>
                     {account.businessName}
+                    {account.application?.source === "MANUAL" && <ManualBadge />}
                   </td>
 
 
@@ -262,6 +270,27 @@ function StatusBadge({ status }) {
       }}
     >
       {status}
+    </span>
+  );
+}
+
+
+function ManualBadge() {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        marginLeft: "8px",
+        padding: "2px 7px",
+        borderRadius: "4px",
+        fontSize: "11px",
+        fontWeight: "600",
+        background: "#e0e7ff",
+        color: "#3730a3",
+        verticalAlign: "middle",
+      }}
+    >
+      Manual
     </span>
   );
 }

@@ -61,6 +61,7 @@ export async function loader() {
       companyNumber: true,
       vatNumber: true,
       status: true,
+      source: true,
       createdAt: true,
       tradeAccount: { select: { id: true } },
     },
@@ -159,6 +160,9 @@ export default function TradeApplications() {
 
                   <td style={tdStyle}>
                     {application.businessName}
+                    {application.source === "MANUAL" && (
+                      <span style={manualBadgeStyle}>Manual</span>
+                    )}
                   </td>
 
                   {/* TYPE */}
@@ -435,4 +439,16 @@ const viewButtonStyle = {
   textDecoration: "none",
   borderRadius: "5px",
   fontSize: "13px",
+};
+
+const manualBadgeStyle = {
+  display: "inline-block",
+  marginLeft: "8px",
+  padding: "2px 7px",
+  borderRadius: "4px",
+  fontSize: "11px",
+  fontWeight: "600",
+  background: "#e0e7ff",
+  color: "#3730a3",
+  verticalAlign: "middle",
 };

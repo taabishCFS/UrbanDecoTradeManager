@@ -685,6 +685,9 @@ export default function TradeApplicationDetail() {
         <div>
           <h1 style={titleStyle}>
             Trade Application
+            {application.source === "MANUAL" && (
+              <span style={manualBadgeStyle}>Manual</span>
+            )}
           </h1>
 
           <p style={subtitleStyle}>
@@ -1627,4 +1630,17 @@ export const headers = (
   return boundary.headers(
     headersArgs
   );
+};
+
+
+const manualBadgeStyle = {
+  display: "inline-block",
+  marginLeft: "10px",
+  padding: "2px 7px",
+  borderRadius: "4px",
+  fontSize: "11px",
+  fontWeight: "600",
+  background: "#e0e7ff",
+  color: "#3730a3",
+  verticalAlign: "middle",
 };
