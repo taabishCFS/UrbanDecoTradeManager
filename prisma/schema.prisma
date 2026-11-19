@@ -77,6 +77,8 @@ model TradeApplication {
 
   status String @default("PENDING")
 
+  source String @default("FORM") // FORM | MANUAL
+
   tradeAccount TradeAccount?
 
   emailMessages EmailMessage[]

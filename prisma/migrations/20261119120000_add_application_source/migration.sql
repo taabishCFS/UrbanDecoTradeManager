@@ -1,0 +1,1 @@
+ALTER TABLE "TradeApplication" ADD COLUMN "source" TEXT NOT NULL DEFAULT 'FORM';
